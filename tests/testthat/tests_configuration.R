@@ -1,0 +1,117 @@
+
+DB_PATH <- "./testdb.sqlite"
+
+tryCatch({
+    ModelDefinition(table="yui", fields=list(yui="INTEGER"))
+}, error=function(e) {
+    stop("Please, load the ORM before you source this file.")
+})
+
+MODELS <- list(
+    adduct=ModelDefinition(
+        table="adduct",
+        fields=list(
+            name="TEXT",
+            mass="FLOAT",
+            charge="INTEGER",
+            multi="INTEGER",
+            formula_add="TEXT",
+            formula_ded="TEXT",
+            sign="TEXT",
+            oidscore="INTEGER",
+            quasi="INTEGER",
+            ips="FLOAT"
+        ),
+        fk=list()
+    ),
+    cluster=ModelDefinition(
+        table="cluster",
+        fields=list(
+            formula="TEXT",
+            annotation="TEXT",
+            coeff="REAL",
+            r_squared="REAL",
+            charge="INTEGER",
+            mean_rt="REAL",
+            score="REAL",
+            deviation="REAL",
+            status="TEXT",
+            adduct="TEXT",
+            curent_group="INTEGER",
+            pc_group="INTEGER",
+            align_group="INTEGER",
+            xcms_group="INTEGER"
+        ),
+        fk=list("sample", "compound", "feature")
+    ),
+    compound=ModelDefinition(
+        table="compound",
+        fields=list(
+            name="TEXT",
+            common_name="TEXT",
+            formula="TEXT",
+            charge="INTEGER",
+            date="TEXT",
+            mz="REAL"
+        ),
+        fk=list()
+    ),
+    feature=ModelDefinition(
+        table="feature",
+        fields=list(
+            mz="FLOAT",
+            mz_min="FLOAT",
+            mz_max="FLOAT",
+            rt="FLOAT",
+            rt_min="FLOAT",
+            rt_max="FLOAT",
+            int_o="FLOAT",
+            int_b="FLOAT",
+            max_o="FLOAT",
+            iso="TEXT",
+            abundance="FLOAT"
+        ),
+        fk=list("cluster")
+    ),
+    instrument=ModelDefinition(
+        table="instrument",
+        fields=list(
+            model="TEXT",
+            manufacturer="TEXT",
+            analyzer="TEXT",
+            dector_type="TEXT"
+        ),
+        fk=list()
+    ),
+    instrument_config=ModelDefinition(
+        table="instrument_config",
+        fields=list(
+            resolution="TEXT",
+            agc_target="TEXT",
+            maximum_IT="TEXT",
+            number_of_scan_range="TEXT",
+            scan_range="TEXT",
+            version="TEXT"
+        ),
+        fk=list()
+    ),
+    software=ModelDefinition(
+        table="software",
+        fields=list(
+            name="TEXT",
+            version="TEXT"
+        ),
+        fk=list()
+    ),
+    sample=ModelDefinition(
+        table="sample",
+        fields=list(
+            name="TEXT",
+            path="TEXT",
+            raw_path="TEXT",
+            polarity="TEXT",
+            raw="BLOB"
+        ),
+        fk=list("instrument", "instrument_config", "software")
+    )
+)
