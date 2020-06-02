@@ -1,0 +1,46 @@
+#!/bin/bash
+
+HOME="$(realpath ~)"
+R_DIRECTORY="${HOME}/R"
+TAB="$(printf '\t')"
+
+
+cat > ./Makefile << EOF
+
+R_BASE="${R_DIRECTORY}"
+R_BINARY="\$(R_BASE)/bin/R"
+R_SCRIPT="\$(R_BASE)/bin/Rscript"
+export R_USER=\$(USER)
+
+R_BINARY="/home/lain/R/bin/R"
+R_SCRIPT="/home/lain/R/bin/Rscript"
+
+all${TAB}:${TAB}test
+
+test_install:
+${TAB}@\$(R_SCRIPT) "./test_install_package.R"
+
+test:
+${TAB}@echo "Running tests..."
+${TAB}@\$(R_BINARY) -q -e "devtools::test('.')"
+${TAB}@echo "Finished."
+
+build${TAB}:${TAB}clean
+${TAB}@echo "Building package..."
+${TAB}\$(R_BINARY) -q -e "devtools::document('.')"
+${TAB}\$(R_BINARY) CMD build .
+${TAB}@echo "Built."
+
+clean${TAB}:
+${TAB}@ls DBModelR_*.tar.gz  2> /dev/null | xargs -I file echo "Deleting ./"file || true
+${TAB}@rm ./DBModelR_*.tar.gz 2> /dev/null || true
+
+doc${TAB}:
+${TAB}@echo "Generating doc..."
+${TAB}@\$(R_BINARY) -q -e 'library("roxygen2");roxygenize(".");warnings()'
+${TAB}@echo "Generated."
+
+
+.PHONY${TAB}:${TAB}all test build clean doc
+
+EOF
