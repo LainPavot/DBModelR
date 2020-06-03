@@ -108,6 +108,7 @@ ModelMeta <- setRefClass(
         orm__="ORM",
         model_name__="character",
         fields__="list",
+        loaded__="logical",
         id="numeric"
     )
 )

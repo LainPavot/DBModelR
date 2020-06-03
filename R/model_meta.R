@@ -34,6 +34,7 @@ ModelMeta$methods(initialize=function(...) {
     .self$fields__ <- list()
     .self$model_name__ <- "MetaModel"
     .self$orm__ <- ORM()
+    .self$loaded__ <- FALSE
     .self$sql_model__ <- ModelDefinition(
         table=.self$table__,
         fields=.self$fields__
@@ -155,6 +156,7 @@ ModelMeta$methods(load_one_from_data__=function(row) {
         .self[[field]] <- row[[field]]
     }
     .self$modified__ <- list()
+    .self$loaded__ <- TRUE
     return (.self)
 })
 

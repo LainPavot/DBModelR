@@ -106,25 +106,26 @@ testthat::test_that("ORM model loading", {
     loaded_dichlorophenol <- orm$compound()$load_by(name="Dichlorophenol", mz=161.96392016799998714)
     testthat::expect_equal(loaded_dichlorophenol$fields__, dichlorophenol$fields__)
     testthat::expect_true(loaded_dichlorophenol == dichlorophenol)
-    testthat::expect_equal(
-        orm$compound()$load_by(
-            orm$WHERE_CLAUSE(
+    compounds <- orm$compound()$load_by(
+        orm$WHERE_CLAUSE(
+            field=orm$compound()$table_field(field="name"),
+            operator=orm$OPERATORS$EQ,
+            value="Dichlorophenol",
+            next_connector=orm$LOGICAL_CONNECTORS$OR,
+            next_clause=orm$WHERE_CLAUSE(
                 field=orm$compound()$table_field(field="name"),
                 operator=orm$OPERATORS$EQ,
-                value="Dichlorophenol",
-                next_connector=orm$LOGICAL_CONNECTORS$OR,
-                next_clause=orm$WHERE_CLAUSE(
-                    field=orm$compound()$table_field(field="name"),
-                    operator=orm$OPERATORS$EQ,
-                    value="Trichlorophenol"
-                )
-            ),orm$WHERE_CLAUSE(
-                field=orm$compound()$table_field(field="mz"),
-                operator=orm$OPERATORS$GE,
-                value=150,
+                value="Trichlorophenol"
             )
-        ),
-        list(trichlorophenol, dichlorophenol)
+        ), orm$WHERE_CLAUSE(
+            field=orm$compound()$table_field(field="mz"),
+            operator=orm$OPERATORS$GE,
+            value=150,
+        )
+    )
+    testthat::expect_true(
+        compounds[[1]] == trichlorophenol &&
+        compounds[[2]] == dichlorophenol
     )
 })
 

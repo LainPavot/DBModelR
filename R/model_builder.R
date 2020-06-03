@@ -69,7 +69,11 @@ generate_setter_ <- function(class_name, field, type) {
         }
         if (is.null(.self$modified__[[field]])) {
             ## if not modified yet, add a "modified" flag for this field
-            .self$modified__[[field]] <- value
+            if (.self$loaded__) {
+                .self$modified__[[field]] <- .self[[field]]
+            } else {
+                .self$modified__[[field]] <- value
+            }
         } else if (.self$modified__[[field]] == value) {
             ## if already modified and back to ariginal value,
             ## remove the "modified" flag for this field
