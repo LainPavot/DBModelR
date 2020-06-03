@@ -38,7 +38,7 @@ FORBIDEN_FIELDS <- tolower(c(
 
 #' @export
 ModelDefinition$methods(
-    initialize=function(table="unknown", fields=list(), fk=list()) {
+    initialize=function(table="unknown", fields=list(), fk=list(), mutual_fk=list(), unidirectionnal_fk=list()) {
     ## The regex in this methods never use the [A-Z] range because
     ## grepl must use the ignore.case systematically
     ## But, error messages must show the [A-Z] range in the regex
@@ -74,4 +74,6 @@ ModelDefinition$methods(
     .self$table <- table
     .self$fields <- fields
     .self$fk <- fk
+    .self$mutual_fk <- mutual_fk
+    .self$unidirectionnal_fk <- unidirectionnal_fk
 })

@@ -171,20 +171,81 @@ ORM$methods(models=function(models=NULL) {
     "
     if (!is.null(models)) {
         .self$model_definitions_ <- models
-        model_names <- purrr::map(.self$model_definitions_, function(x)x$table)
         if (
             is.null(names(.self$model_definitions_)) ||
             length(names(.self$model_definitions_)) != length(.self$model_definitions_)
         ) {
-            names(.self$model_definitions_) <- model_names
+            names(.self$model_definitions_) <- (
+                purrr::map(.self$model_definitions_, function(x)x$table)
+            )
         }
-        .self$model_objects_ <- purrr::map(
-            .self$model_definitions_,
-            function(def){model_builder(def, .self)}
-        )
-        names(.self$model_objects_) <- model_names
+        .self$analyse_model_definitions_()
+        # print(.self$model_definitions_)
+        .self$model_objects_ <- list()
+        for (definition in .self$model_definitions_) {
+            .self$model_objects_[[definition$table]] <- model_builder(definition, .self)
+        }
     }
     return (.self$model_objects_)
+})
+
+ORM$methods(analyse_model_definitions_=function() {
+    potential_mutual_links <- list()
+    validated_mutual_links <- list()
+    for(schema in .self$model_definitions_) {
+        schema$mutual_fk <- list()
+        schema$unidirectionnal_fk <- list()
+        if (length(schema$fk) != 0) {
+            linked_schemas <- potential_mutual_links[[schema$table]]
+            linked_tables <- purrr::map(linked_schemas, function(x)x$table)
+            mutuals <- (
+                Filter(function(fk) {
+                    return (any(grepl(fk, linked_tables, fixed=TRUE)))
+                }, schema$fk)
+            )
+            for (other in purrr::map(mutuals, function(x).self$model_definitions_[[x]])) {
+                schema$mutual_fk[[other$table]] <- TRUE
+                other$mutual_fk[[schema$table]] <- TRUE
+                if (length(validated_mutual_links[[schema$table]]) == 0) {
+                    validated_mutual_links[[schema$table]] <- list(other$table)
+                } else {
+                    validated_mutual_links[[schema$table]][[
+                        length(validated_mutual_links[[schema$table]])+1
+                    ]] <- other$table
+                }
+                if (length(validated_mutual_links[[other$table]]) == 0) {
+                    validated_mutual_links[[other$table]] <- list(schema$table)
+                } else {
+                    validated_mutual_links[[other$table]][[
+                        length(validated_mutual_links[[other$table]])+1
+                    ]] <- schema$table
+                }
+            }
+            for (name in schema$fk) {
+                if (length(potential_mutual_links[[name]]) > 0) {
+                    potential_mutual_links[[name]][[
+                        length(potential_mutual_links[[name]])+1
+                    ]] <- schema
+                } else {
+                    potential_mutual_links[[name]] <- list(schema)
+                }
+            }
+        }
+    }
+    for(schema in .self$model_definitions_) {
+        if (length(schema$fk) > 0) {
+            mutual_links <- validated_mutual_links[[schema$table]]
+            if(length(mutual_links) != length(schema$fk)) {
+                ## we ignore fks that are resolved through linkage tables
+                for (fk in schema$fk) {
+                    if (!any(grepl(fk, mutual_links, fixed=TRUE))) {
+                        schema$unidirectionnal_fk[[fk]] <- sprintf("%s_id", fk)
+                    }
+                }
+            }
+        }
+    }
+    return (.self)
 })
 
 ORM$methods(connect=function() {
@@ -408,71 +469,50 @@ ORM$methods(create_database=function(no_exists=TRUE) {
     "\\cr
     Create the database with the curent models.
     "
-    potential_mutual_links <- list()
-    validated_mutual_links <- list()
+    # potential_mutual_links <- list()
+    # validated_mutual_links <- list()
+    created_mutual <- list()
     for(schema in .self$model_definitions_) {
         if (length(schema$fk) == 0) {
             request <- .self$create_table_without_fk_request(
                 schema, no_exists=no_exists
             )
             .self$add_to_request_pool(request)
+            print(request)
         } else {
-            linked_schemas <- potential_mutual_links[[schema$table]]
-            linked_tables <- purrr::map(linked_schemas, function(x)x$table)
-            mutuals <- (
-                Filter(function(fk) {
-                    return (any(grepl(fk, linked_tables, fixed=TRUE)))
-                }, schema$fk)
-            )
-            for (other in purrr::map(mutuals, function(x).self$model_definitions_[[x]])) {
-                request <- .self$create_linkage_table_request(
-                    schema, other, no_exists=no_exists
-                )
-                .self$add_to_request_pool(request)
-                if (length(validated_mutual_links[[schema$table]]) == 0) {
-                    validated_mutual_links[[schema$table]] <- list(other$table)
-                } else {
-                    validated_mutual_links[[schema$table]][[
-                        length(validated_mutual_links[[schema$table]])+1
-                    ]] <- other$table
-                }
-                if (length(validated_mutual_links[[other$table]]) == 0) {
-                    validated_mutual_links[[other$table]] <- list(schema$table)
-                } else {
-                    validated_mutual_links[[other$table]][[
-                        length(validated_mutual_links[[other$table]])+1
-                    ]] <- schema$table
-                }
-            }
-            for (name in schema$fk) {
-                if (length(potential_mutual_links[[name]]) > 0) {
-                    potential_mutual_links[[name]][[
-                        length(potential_mutual_links[[name]])+1
-                    ]] <- schema
-                } else {
-                    potential_mutual_links[[name]] <- list(schema)
+            for (mutual in names(schema$mutual_fk)) {
+                mutual_id <- paste0(mutual, schema$table)
+                if (is.null(created_mutual[[mutual_id]])) {
+                    created_mutual[[mutual_id]] <- TRUE
+                    created_mutual[[paste0(schema$table, mutual)]] <- TRUE
+                    other <- (
+                        .self$model_definitions_[[mutual]]
+                    )
+                    request <- .self$create_linkage_table_request(
+                        schema, other, no_exists=no_exists
+                    )
+                    .self$add_to_request_pool(request)
+                    print(request)
                 }
             }
         }
     }
     for(schema in .self$model_definitions_) {
         if (length(schema$fk) > 0) {
-            mutual_links <- validated_mutual_links[[schema$table]]
-            if(length(mutual_links) == length(schema$fk)) {
+            if (length(schema$unidirectionnal_fk) > 0) {
+                ## we ignore fks that are resolved through linkage tables
+                request <- .self$create_table_with_fks_request(
+                    schema, no_exists=no_exists
+                )
+            } else {
                 ## all fk are mutual, there are only linkage tables.
                 ## no fk are needed anymore: we ignore fks
                 request <- .self$create_table_without_fk_request(
                     schema, no_exists=no_exists
                 )
-            } else {
-                ## we ignore fks that are resolved through linkage tables
-                request <- .self$create_table_with_fks_request(
-                    schema,
-                    ignore_fk=mutual_links,
-                    no_exists=no_exists
-                )
-            }
+            } 
             .self$add_to_request_pool(request)
+            print(request)
         }
     }
     requests <- .self$request_pool
@@ -548,26 +588,20 @@ ORM$methods(create_linkage_table_request=function(schema, other, no_exists=TRUE)
     ))
 })
 
-ORM$methods(create_table_with_fks_request=function(schema, ignore_fk=c(), no_exists=TRUE) {
+ORM$methods(create_table_with_fks_request=function(schema, no_exists=TRUE) {
     "\\cr
     Internal method. Do not use.
     Create the request string for the given model (must have one/some fks).
     May disapear or change quickly. Don't rely on it.
     "
     fk_constraints <- list()
-    filtered_fk <- list()
-    for (fk in schema$fk) {
-        if (!any(grepl(fk, ignore_fk, fixed=TRUE))) {
-            filtered_fk[[length(filtered_fk)+1]] <- paste(
-                fk, "id", sep="_"
-            )
-            fk_constraints[[length(fk_constraints)+1]] <- .self$build_fk(fk)
-        }
+    for (table in names(schema$unidirectionnal_fk)) {
+        fk_constraints[[length(fk_constraints)+1]] <- .self$build_fk(table)
     }
     fields <- build_fields_declaration(schema)
     fk_constraints <- paste(fk_constraints, collapse=", ")
-    fk_definitions <- rep(list("INTEGER"), length(filtered_fk))
-    names(fk_definitions) <- filtered_fk
+    fk_definitions <- rep(list("INTEGER"), length(schema$unidirectionnal_fk))
+    names(fk_definitions) <- schema$unidirectionnal_fk
     fk_definitions <- build_fields_declaration(list(fields=fk_definitions))
     if_no_exists <- c(.self$IF_NO_EXISTS, "")[[no_exists+1]]
     return (fill_template(
