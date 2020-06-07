@@ -21,7 +21,7 @@ ORM$methods(initialize=function(
     connect=TRUE,
     in_memory=FALSE
 ) {
-    "\
+    "
     database_path: A string that represent the location of the database
     to connect to.
     model_definitions: A list of ModelDefinition instances, that defines
@@ -98,14 +98,14 @@ ORM$methods(initialize=function(
 })
 
 ORM$methods(is_connected=function() {
-    "\\cr
+    "
     Return TRUE if the orm is connected to the database ; FALSE otherwise.
     "
     return (dbIsValid(.self$connection_))
 })
 
 ORM$methods(models=function(models=NULL) {
-    "\\cr
+    "
     With no parameters:
         Returns a named list of the form list(adduct=AdductModel,
         compound=CompoundModel)
@@ -140,7 +140,7 @@ ORM$methods(models=function(models=NULL) {
 })
 
 ORM$methods(connect=function() {
-    "\\cr
+    "
     Call this method to connect the orm to the database.
     Returns TRUE if the orm has connected successfully or if it was
     already connected.
@@ -159,10 +159,11 @@ ORM$methods(connect=function() {
 })
 
 ORM$methods(disconnect=function(remove=FALSE) {
-    "\\cr
+    "
     Call this method to disconnect the orm from the database.
     This method should always be called when the is terminated.
-    Returns TRUE if the orm is disconnected or if it was already disconnected.
+    Returns TRUE if the orm is disconnected or if it was already
+    disconnected.
     "
     if (.self$is_connected()) {
         dbDisconnect(.self$connection_)
@@ -172,6 +173,9 @@ ORM$methods(disconnect=function(remove=FALSE) {
     }
     return (!.self$is_connected())
 })
+ORM$methods(table_field=function(...) {
+    return (TableField(.self, ...))
+})
 ORM$methods(where_clause=function(...) {
     return (WhereClause(.self, ...))
 })
@@ -179,7 +183,7 @@ ORM$methods(join_clause=function(...) {
     return (JoinClause(.self, ...))
 })
 ORM$methods(with_unsafe_mode__=function(code) {
-    "\
+    "
     Use this function only if you realy know what you do.
     Deactivates input escaping, execute the expression, and 
     reactivate it.
@@ -191,7 +195,7 @@ ORM$methods(with_unsafe_mode__=function(code) {
     return (result)
 })
 ORM$methods(with_connection=function(code) {
-    "\\cr
+    "
     One parameter: a block of code (expression)
     The orm connects to the database, executes the expression and then
     disconnect from the database.
@@ -214,7 +218,7 @@ ORM$methods(with_connection=function(code) {
 })
 
 ORM$methods(with_atomic=function(before, then) {
-    "\\cr
+    "
     The `before` parameter and the `then` parameter are expressions.
     The orm will execute your `before` code while ensuring that the requests
     will be in a atomic transaction, and then, call your `after` block.
@@ -248,7 +252,7 @@ ORM$methods(with_atomic=function(before, then) {
             print(context$rs$the_response)  ## prints '42'
 
             ## necessay to free the memory allocated for the SQLiteResult
-            RSQLite::dbClearResult(context$rs$the_response)
+            dbClearResult(context$rs$the_response)
         })
         }
 
@@ -272,7 +276,7 @@ ORM$methods(with_atomic=function(before, then) {
 })
 
 ORM$methods(with_query=function(request, expr) {
-    "\\cr
+    "
     request: a request to use the `send_query` to.
     expr: an expression called after the request is executed.
     This method is a shortcut to execute a `send_query` and use the
@@ -293,7 +297,7 @@ ORM$methods(with_query=function(request, expr) {
 })
 
 ORM$methods(with_statement=function(request, expr) {
-    "\\cr
+    "
     request: a request to use the `send_statement` to.
     expr: an expression called after the request is executed.
     This method is a shortcut to execute a `send_statement` and use the
@@ -314,7 +318,7 @@ ORM$methods(with_statement=function(request, expr) {
 })
 
 ORM$methods(with__=function(method, request, expr) {
-    "\\cr
+    "
     Internal method. Do not use.
     Generic method called by `with_statement` and `with_query`
     May disapear or change quickly. Don't rely on it.
@@ -328,35 +332,35 @@ ORM$methods(with__=function(method, request, expr) {
 })
 
 ORM$methods(execute=function(request) {
-    "\\cr
+    "
     Calls RSQLite::dbExecute with the curent connection.
     "
     return (RSQLite::dbExecute(.self$connection_, request))
 })
 
 ORM$methods(send_query=function(request) {
-    "\\cr
+    "
     Calls RSQLite::dbSendQuery with the curent connection.
     "
     return (RSQLite::dbSendQuery(.self$connection_, request))
 })
 
 ORM$methods(get_query=function(request) {
-    "\\cr
+    "
     Calls RSQLite::dbGetQuery with the curent connection.
     "
     return (RSQLite::dbGetQuery(.self$connection_, request))
 })
 
 ORM$methods(send_statement=function(request) {
-    "\\cr
+    "
     Calls RSQLite::dbSendStatement with the curent connection.
     "
     return (RSQLite::dbSendStatement(.self$connection_, request))
 })
 
 ORM$methods(escape=function(input) {
-    "\
+    "
     Calls dbQuoteLiteral with the curent connection.
     http://xkcd.com/327/
     "
@@ -369,7 +373,7 @@ ORM$methods(escape=function(input) {
 })
 
 ORM$methods(recreate_database=function(no_exists=TRUE) {
-    "\\cr
+    "
     Disconnects from the curent connection and remove the file.
     Re-connects and create the database, with the curent models.
     "
@@ -379,7 +383,7 @@ ORM$methods(recreate_database=function(no_exists=TRUE) {
 })
 
 ORM$methods(create_database=function(no_exists=TRUE) {
-    "\\cr
+    "
     Create the database with the curent models.
     "
     created_mutual <- list()
@@ -431,14 +435,14 @@ ORM$methods(create_database=function(no_exists=TRUE) {
 })
 
 ORM$methods(add_to_request_pool=function(request) {
-    "\\cr
+    "
     Add a request string to the pool of requests.
     "
     .self$request_pool[[length(request_pool)+1]] <- request
 })
 
 ORM$methods(execute_request_pool=function(flush=TRUE) {
-    "\\cr
+    "
     Executes all the requests in the pool, and then empy the pool.
     "
     for (request in .self$request_pool) {
@@ -450,14 +454,14 @@ ORM$methods(execute_request_pool=function(flush=TRUE) {
 })
 
 ORM$methods(delete_request_pool=function() {
-    "\\cr
+    "
     Empty the request pool.
     "
     .self$request_pool <- list()
 })
 
 ORM$methods(create_table_without_fk_request=function(schema, no_exists=TRUE) {
-    "\\cr
+    "
     Internal method. Do not use.
     Create the request string for the given model (mustn't have fks).
     May disapear or change quickly. Don't rely on it.
@@ -475,7 +479,7 @@ ORM$methods(create_table_without_fk_request=function(schema, no_exists=TRUE) {
 ORM$methods(create_linkage_table_request=function(
     schema, other, no_exists=TRUE
 ) {
-    "\
+    "
     Internal method. Do not use.
     Create the request string for the linkage table between the  given models.
     May disapear or change quickly. Don't rely on it.
@@ -501,7 +505,7 @@ ORM$methods(create_linkage_table_request=function(
 })
 
 ORM$methods(create_table_with_fks_request=function(schema, no_exists=TRUE) {
-    "\\cr
+    "
     Internal method. Do not use.
     Create the request string for the given model (must have one/some fks).
     May disapear or change quickly. Don't rely on it.
@@ -520,7 +524,7 @@ ORM$methods(create_table_with_fks_request=function(schema, no_exists=TRUE) {
 ORM$methods(create_select_request=function(
     table="", fields=NULL, join=NULL, where=NULL
 ) {
-    "\
+    "
     Internal method. Do not use.
     Create the request string to select some fields from one table,
     can have a `where` clause.
@@ -539,7 +543,7 @@ ORM$methods(create_select_request=function(
 ORM$methods(create_insert_request=function(
     table="", fields=NULL, values=NULL, where=NULL
 ) {
-    "\
+    "
     Internal method. Do not use.
     Create the request string to insert some values in one table,
     can have a `where` clause.
@@ -560,7 +564,7 @@ ORM$methods(create_insert_request=function(
     return (result)
 })
 ORM$methods(create_update_request=function(table="", values=NULL, where=NULL) {
-    "\\cr
+    "
     Internal method. Do not use.
     Create the request string to update some values in one table,
     can have a `where` clause.
@@ -585,7 +589,7 @@ ORM$methods(create_update_request=function(table="", values=NULL, where=NULL) {
 })
 
 ORM$methods(build_insert_values=function(values=NULL) {
-    "\\cr
+    "
     Internal method. Do not use.
     Create the `values` part of an insert request.
     May disapear or change quickly. Don't rely on it.
@@ -608,7 +612,7 @@ ORM$methods(build_insert_values=function(values=NULL) {
 })
 
 ORM$methods(build_select_fields=function(fields, table=NULL) {
-    "\\cr
+    "
     Internal method. Do not use.
     Create the `values` part of a select request.
     May disapear or change quickly. Don't rely on it.
@@ -627,7 +631,7 @@ ORM$methods(build_select_fields=function(fields, table=NULL) {
 })
 
 ORM$methods(build_where_clause=function(where=NULL, sub=FALSE) {
-    "\\cr
+    "
     Internal method. Do not use.
     Create the `where` part of a request.
     May disapear or change quickly. Don't rely on it.
@@ -698,7 +702,7 @@ ORM$methods(build_join_clause=function(join) {
 })
 
 ORM$methods(fill_template=function(template, ...) {
-    "\\cr
+    "
     Internal method. Do not use.
     Fill the given request template with the given additionnal parameters.
     May disapear or change quickly. Don't rely on it.
@@ -713,7 +717,7 @@ ORM$methods(fill_template=function(template, ...) {
 })
 
 ORM$methods(build_fields_declaration=function(schema) {
-    "\\cr
+    "
     Internal method. Do not use.
     Create the `fields` part of a create table request.
     May disapear or change quickly. Don't rely on it.
@@ -732,7 +736,7 @@ ORM$methods(build_fields_declaration=function(schema) {
 })
 
 ORM$methods(build_fk_constraint=function(reference, foreign_field="id") {
-    "\
+    "
     Internal method. Do not use.
     Create the `fk restrictions` part of a create table request.
     May disapear or change quickly. Don't rely on it.
