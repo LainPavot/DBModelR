@@ -30,6 +30,7 @@ ORM$methods(initialize=function(
     database during instantiation or not.
     in_memory: A boolean telling weither database is in memory or on disc.
     "
+    .self$escape_values__must_be_true__ <- TRUE
     .self$in_memory <- in_memory
     if (!is.null(model_definitions)) {
         .self$models(model_definitions)
@@ -153,9 +154,8 @@ ORM$methods(connect=function() {
         .self$connection_ <- dbConnect(
             SQLite(), path
         )
-        .self$connected_ <- TRUE
     }
-    return (.self$connected_)
+    return (.self$is_connected())
 })
 
 ORM$methods(disconnect=function(remove=FALSE) {
@@ -164,9 +164,8 @@ ORM$methods(disconnect=function(remove=FALSE) {
     This method should always be called when the is terminated.
     Returns TRUE if the orm is disconnected or if it was already disconnected.
     "
-    if (.self$connected_) {
-        RSQLite::dbDisconnect(.self$connection_)
-        .self$connected_ <- FALSE
+    if (.self$is_connected()) {
+        dbDisconnect(.self$connection_)
         if (remove) {
             file.remove(.self$database_path)
         }
@@ -179,6 +178,18 @@ ORM$methods(where_clause=function(...) {
 ORM$methods(join_clause=function(...) {
     return (JoinClause(.self, ...))
 })
+ORM$methods(with_unsafe_mode__=function(code) {
+    "\
+    Use this function only if you realy know what you do.
+    Deactivates input escaping, execute the expression, and 
+    reactivate it.
+    Returns the result from the expr
+    "
+    .self$escape_values__must_be_true__ <- FALSE
+    result <- code
+    .self$escape_values__must_be_true__ <- TRUE
+    return (result)
+})
 ORM$methods(with_connection=function(code) {
     "\\cr
     One parameter: a block of code (expression)
@@ -190,7 +201,7 @@ ORM$methods(with_connection=function(code) {
         if (!.self$is_connected()) {
             stop("Could not connect to the database.")
         }
-        res <- .self$with_connection(code)
+        res <- code
         .self$disconnect()
     } else {
         ## code is evaluated here
@@ -342,13 +353,17 @@ ORM$methods(send_statement=function(request) {
     return (RSQLite::dbSendStatement(.self$connection_, request))
 })
 
-ORM$methods(escape=function(something) {
-    "\\cr
-    Calls RSQLite::dbQuoteLiteral with the curent connection.
+ORM$methods(escape=function(input) {
+    "\
+    Calls dbQuoteLiteral with the curent connection.
+    http://xkcd.com/327/
     "
-    return (RSQLite::dbQuoteLiteral(
-        .self$connection_, something
-    ))
+    if (.self$escape_values__must_be_true__) {
+        return (dbQuoteLiteral(
+            .self$connection_, input
+        ))
+    }
+    return (input)
 })
 
 ORM$methods(recreate_database=function(no_exists=TRUE) {
@@ -446,7 +461,7 @@ ORM$methods(create_table_without_fk_request=function(schema, no_exists=TRUE) {
     May disapear or change quickly. Don't rely on it.
     "
     fields <- build_fields_declaration(schema)
-    if_no_exists <- c(IF_NO_EXISTS, "")[[no_exists+1]]
+    if_no_exists <- c(.self$IF_NO_EXISTS, "")[[no_exists+1]]
     return (fill_template(
         CREATE_TABLE_TEMPLATE,
         table=schema$table,
@@ -455,13 +470,15 @@ ORM$methods(create_table_without_fk_request=function(schema, no_exists=TRUE) {
     ))
 })
 
-ORM$methods(create_linkage_table_request=function(schema, other, no_exists=TRUE) {
-    "\\cr
+ORM$methods(create_linkage_table_request=function(
+    schema, other, no_exists=TRUE
+) {
+    "\
     Internal method. Do not use.
     Create the request string for the linkage table between the  given models.
     May disapear or change quickly. Don't rely on it.
     "
-    if_no_exists <- c(IF_NO_EXISTS, "")[[no_exists+1]]
+    if_no_exists <- c(.self$IF_NO_EXISTS, "")[[no_exists+1]]
     fk_definitions <- rep(list("INTEGER"), 2)
     names(fk_definitions) <- list(
         paste(schema$table, "id", sep="_"),
@@ -517,8 +534,10 @@ ORM$methods(create_select_request=function(
     return (result)
 })
 
-ORM$methods(create_insert_request=function(table="", fields=NULL, values=NULL, where=NULL) {
-    "\\cr
+ORM$methods(create_insert_request=function(
+    table="", fields=NULL, values=NULL, where=NULL
+) {
+    "\
     Internal method. Do not use.
     Create the request string to insert some values in one table,
     can have a `where` clause.
