@@ -15,32 +15,38 @@ export R_USER=\$(USER)
 R_BINARY="/home/lain/R/bin/R"
 R_SCRIPT="/home/lain/R/bin/Rscript"
 
-all${TAB}:${TAB}test
+all${TAB}${TAB}: test
 
-test_install:
+install${TAB}:
 ${TAB}@\$(R_SCRIPT) "./test_install_package.R"
 
-test:
+test${TAB}:
 ${TAB}@echo "Running tests..."
 ${TAB}@\$(R_BINARY) -q -e "devtools::test('.')"
 ${TAB}@echo "Finished."
 
-build${TAB}:${TAB}clean
+build${TAB}: clean doc
 ${TAB}@echo "Building package..."
 ${TAB}\$(R_BINARY) -q -e "devtools::document('.')"
 ${TAB}\$(R_BINARY) CMD build .
+${TAB}(${TAB}\\
+${TAB}${TAB}dot=\`pwd\`;${TAB}\\
+${TAB}${TAB}cd /tmp/ ;${TAB}\\
+${TAB}${TAB}\$(R_BINARY) CMD check "\$\${dot}"/*.tar.gz ;${TAB}${TAB}\\
+${TAB}${TAB}\$(R_BINARY) CMD BiocCheck "\$\${dot}"/*.tar.gz${TAB}\\
+${TAB})
 ${TAB}@echo "Built."
 
 clean${TAB}:
 ${TAB}@ls DBModelR_*.tar.gz  2> /dev/null | xargs -I file echo "Deleting ./"file || true
 ${TAB}@rm ./DBModelR_*.tar.gz 2> /dev/null || true
 
-doc${TAB}:
+doc${TAB}${TAB}:
 ${TAB}@echo "Generating doc..."
 ${TAB}@\$(R_BINARY) -q -e 'library("roxygen2");roxygenize(".");warnings()'
 ${TAB}@echo "Generated."
 
 
-.PHONY${TAB}:${TAB}all test build clean doc
+.PHONY${TAB}: all test build clean doc
 
 EOF
