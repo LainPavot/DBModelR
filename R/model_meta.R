@@ -1,10 +1,7 @@
 
 
 setMethod("==", signature("ModelMeta", "ModelMeta"), function(e1, e2) {
-    if(class(e1) != class(e2)) {
-        return (FALSE)
-    }
-    if (e2$id != e1$id) {
+    if(!is(e1, class(e2))) {
         return (FALSE)
     }
     e1_fields <- e1$fields__
@@ -29,7 +26,6 @@ ModelMeta$methods(initialize=function(...) {
     "
     callSuper(...)
     .self$modified__ <- list()
-    .self$id <- -1
     .self$table__ <- "meta"
     .self$fields__ <- list()
     .self$model_name__ <- "MetaModel"
@@ -41,9 +37,14 @@ ModelMeta$methods(initialize=function(...) {
     )
 })
 
+ModelMeta$methods(join_clause=function(table, on) {
+    return (.self$orm__$join_clause(
+        table=table, on=on
+    ))
+})
 
 ModelMeta$methods(table_field=function(field) {
-    "\\cr
+    "\
     "
     if (is.null(.self$fields__[[field]])) {
         stop(sprintf(
@@ -52,7 +53,7 @@ ModelMeta$methods(table_field=function(field) {
             .self$table__
         ))
     }
-    return (.self$orm__$TABLE_FIELD(table=.self$table__, field=field))
+    return (.self$orm__$table_field(table=.self$table__, field=field))
 })
 
 
@@ -60,18 +61,19 @@ ModelMeta$methods(show=function() {
     "\\cr
     "
     cat(paste(
-        sprintf("<%s [id: %d]>: ", .self$table__, .self$id),
-        do.call(paste, c(
-            map(names(.self$fields__), function(field) {
-                value <- .self[[field]]
-                if (is.character(value)) {
-                    fmt <- "[%s: \"%s\"]"
-                } else {
-                    fmt <- "[%s: %s]"
+        sprintf("<%s [id: %d]>: ", .self$table__, .self$get_id()),
+        do.call(paste, c(map(
+                Filter(function(x){x!="id"}, names(.self$fields__)),
+                function(field) {
+                    value <- .self[[field]]
+                    if (is.character(value)) {
+                        fmt <- "[%s: \"%s\"]"
+                    } else {
+                        fmt <- "[%s: %s]"
+                    }
+                    return (sprintf(fmt, field, value))
                 }
-                return (sprintf(fmt, field, value))
-            }), sep="\n  "
-        )), "",
+        ), sep="\n  ")), "",
         sep="\n  "
     ))
 })
@@ -89,21 +91,35 @@ ModelMeta$methods(load_by=function(...){
     "
     fields <- list(...)
     where <- list()
+    join <- list()
     field_names <- names(fields)
-    for (i in 1:length(fields)) {
+    for (i in seq_along(fields)) {
         field <- field_names[[i]]
         value <- fields[[i]]
-        if (field == "" || class(value) == "WhereClause") {
+        if (is(value, "WhereClause")) {
             where[[length(where)+1]] <- value
+        } else if (is(value, "JoinClause")) {
+            join[[length(join)+1]] <- value
         } else {
-            if (field != "id" && is.null(.self$fields__[[field]])) {
+            if (is(field, "MetaModel")) {
+                class_name <- class(field)
+                field <- field$get_id()
+                if (field == -1) {
+                    stop(sprintf(paste0(
+                        "The %s has never been saved to the database, and",
+                        "so has no id. You must save the it before."
+                    )), class_name)
+                }
+            } else if (is.null(.self$fields__[[field]])) {
                 stop(sprintf(
                     "Field <%s> does not exists for table <%s>",
                     field, .self$table__
                 ))
             }
             where[[length(where)+1]] <- list(
-                field=.self$orm__$TABLE_FIELD(table=.self$table__, field=field),
+                field=.self$orm__$table_field(
+                    table=.self$table__, field=field
+                ),
                 value=value,
                 operator=.self$orm__$OPERATORS$EQ
             )
@@ -113,7 +129,10 @@ ModelMeta$methods(load_by=function(...){
     ## we remove the last "AND" operator
     where[[length(where)]] <- NULL
     request <- .self$orm__$create_select_request(
-        table=.self$table__, fields=c("id", names(.self$fields__)), where=where
+        table=.self$table__,
+        fields=names(.self$fields__),
+        join=join,
+        where=where
     )
     return (.self$load_from_request__(request))
 })
@@ -177,7 +196,7 @@ ModelMeta$methods(save=function(bulk=FALSE, return_request=FALSE) {
         for (field in fields) {
             values[[field]] <- .self[[field]]
         }
-        if (.self$id == -1) {
+        if (.self$get_id() == -1) {
             request <- .self$orm__$create_insert_request(
                 table=.self$table__, fields=fields, values=values
             )
@@ -186,8 +205,10 @@ ModelMeta$methods(save=function(bulk=FALSE, return_request=FALSE) {
             request <- .self$orm__$create_update_request(
                 table=.self$table__, values=values, where=list(
                     list(
-                        field=.self$orm__$TABLE_FIELD(table=.self$table__, field="id"),
-                        value=.self$id,
+                        field=.self$orm__$table_field(
+                            table=.self$table__, field="id"
+                        ),
+                        value=.self$get_id(),
                         operator=.self$orm__$OPERATORS$EQ
                     )
                 )
@@ -199,7 +220,7 @@ ModelMeta$methods(save=function(bulk=FALSE, return_request=FALSE) {
     }
     get_id <- (
         if (new_row) "SELECT last_insert_rowid() as id"
-        else paste("SELECT", .self$orm__$escape(.self$id), "as id")
+        else paste("SELECT", .self$orm__$escape(.self$get_id()), "as id")
     )
     .self$orm__$with_atomic(
         before={
@@ -208,7 +229,7 @@ ModelMeta$methods(save=function(bulk=FALSE, return_request=FALSE) {
         },
         then={
             context <- .self$orm__$execution_context
-            .self$id <- context$rs$id
+            .self$set_id(context$rs$id)
             .self$modified__ <- list()
         }
     )

@@ -37,8 +37,12 @@ FORBIDEN_FIELDS <- tolower(c(
 
 
 #' @export
-ModelDefinition$methods(
-    initialize=function(table="unknown", fields=list(), fk=list(), mutual_fk=list(), unidirectionnal_fk=list()) {
+ModelDefinition$methods(initialize=function(
+    table="unknown",
+    fields=list(),
+    many=list(),
+    one=list()
+) {
     ## The regex in this methods never use the [A-Z] range because
     ## grepl must use the ignore.case systematically
     ## But, error messages must show the [A-Z] range in the regex
@@ -54,26 +58,43 @@ ModelDefinition$methods(
     if (!is.list(fields)) {
         stop("ModelDefinition$fields must be a list of strings.")
     }
+    if (!is.list(many)) {
+        stop("ModelDefinition$many must be a list of strings.")
+    }
+    if (!is.list(one)) {
+        stop("ModelDefinition$one must be a list of strings.")
+    }
     if (any(names(fields) == "")) {
         stop("ModelDefinition$fields must have a name for each element.")
     }
-    for (field in names(fields)) {
-        if (!is.character(fields[[field]])) {
-            stop("ModelDefinition$fields must be a list of strings.")
-        }
-        if (!grepl(field_regex, field, perl=TRUE, ignore.case=TRUE)) {
-            stop(
-                "ModelDefinition$fields must contain names that match",
-                field_regex_error_message
-            )
-        }
-        if (any(grepl(sprintf("^%s$", field), FORBIDEN_FIELDS))) {
-            stop(sprintf("The field name %s is forbiden (%s model).", field, table))
+    attributes <- list(fields=fields, many=many, one=one)
+    for (name in names(attributes)) {
+        kind <- attributes[[name]]
+        for (field_name in names(attributes[[name]])) {
+            field <- attributes[[name]][[field_name]]
+            if (!is.character(field)) {
+                stop(sprintf("ModelDefinition$%s must be a list of strings."))
+            }
+            if (!grepl(field_regex, field_name, perl=TRUE, ignore.case=TRUE)) {
+                stop(sprintf(
+                    "ModelDefinition$%s must contain names that match %s regex",
+                    kind, field_regex_error_message
+                ))
+            }
+            if (any(grepl(sprintf("^%s$", field_name), FORBIDEN_FIELDS))) {
+                stop(sprintf(
+                    "The field name %s is forbiden (%s model).", field_name, table
+                ))
+            }
         }
     }
+    ## we set foreign keys as INTEGER fields named table_id
     .self$table <- table
     .self$fields <- fields
-    .self$fk <- fk
-    .self$mutual_fk <- mutual_fk
-    .self$unidirectionnal_fk <- unidirectionnal_fk
+    .self$many <- many
+    .self$one <- one
+    .self$fields$id <- "INTEGER"
+    for(field in one) {
+        .self$fields[[paste0(field, "_id")]] <- "INTEGER"
+    }
 })

@@ -32,9 +32,8 @@ ModelDefinition <- setRefClass(
     fields=c(
         table="character",
         fields="list",
-        fk="list",
-        mutual_fk="list",
-        unidirectionnal_fk="list"
+        many="list",
+        one="list"
     )
 )
 

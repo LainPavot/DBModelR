@@ -38,78 +38,6 @@ ORM$methods(initialize=function(database_path=NULL, model_definitions=NULL, conn
     .self$LOGICAL_CONNECTORS <- list(
         AND="AND", OR="OR"
     )
-    .self$TABLE_FIELD_ <- setRefClass(
-        "TableField", fields=c(table="character", field="character"),
-        methods=list(initialize=function(orm=NULL, table="", field="") {
-            if (is.null(orm)) {
-                return (.self)
-            }
-            .self$table <- table
-            .self$field <- field
-        }, as.request=function() {
-            return (sprintf("'%s'.'%s'", .self$table, .self$field))
-        }, show=function(){cat(.self$as.request())})
-    )
-    .self$WHERE_CLAUSE_ <- setRefClass(
-        "WhereClause", fields=c(
-            field="TableField",
-            operator="character",
-            value="character",
-            next_connector="character",
-            next_clause="character"
-        ), methods=list(initialize=function(
-            orm=NULL, field="", operator="", value="",
-            next_connector=NULL, next_clause=NULL
-        ){
-            if (is.null(orm)) {
-                return (.self)
-            }
-            if (!any(grepl(
-                sprintf("^%s$", operator),
-                orm$OPERATORS,
-                perl=TRUE,
-                ignore.case=TRUE
-            ))) {
-                stop(sprintf("Malformed Where Clause: Bad operator: %s", operator))
-            }
-            .self$field <- field
-            .self$operator <- operator
-            .self$value <- orm$escape(value)
-            if (!is.null(next_connector) && !is.null(next_clause)) {
-                if (!any(grepl(
-                    sprintf("^%s$", next_connector),
-                    orm$LOGICAL_CONNECTORS,
-                    perl=TRUE,
-                    ignore.case=TRUE
-                ))) {
-                    stop("Unknown logical connector between this where clause and the following: %s", next_connector)
-                }
-                .self$next_connector <- next_connector
-                .self$next_clause <- next_clause$as.request()
-            } else {
-                .self$next_connector <- "NONE"
-            }
-        }, as.request=function(){
-            if (.self$next_connector == "NONE") {
-                return (sprintf(
-                    "%s %s %s",
-                    .self$field$as.request(),
-                    .self$operator,
-                    .self$value
-                ))
-            }
-            return (sprintf(
-                "%s %s %s %s %s",
-                .self$field$as.request(),
-                .self$operator,
-                .self$value,
-                .self$next_connector,
-                .self$next_clause
-            ))
-        }, show=function(){
-            return(print(.self$as.request()))
-        })
-    )
     .self$IF_NO_EXISTS <- "IF NOT EXISTS"
     .self$CREATE_TABLE_TEMPLATE <- "
         CREATE TABLE
@@ -125,12 +53,12 @@ ORM$methods(initialize=function(database_path=NULL, model_definitions=NULL, conn
         SELECT {{fields}} FROM {{table}} {{where_clause}}
     "
     .self$INSERT_WHERE_TEMPLATE <- "
-        INSERT INTO {{table}} {{fields}} VALUES {{values}} {{where_clause}}
+        INSERT INTO {{table}} {{fields}} VALUES {{values}} {{join_clause}} {{where_clause}}
     "
     .self$UPDATE_WHERE_TEMPLATE <- "
         UPDATE {{table}} SET {{update_values}} {{where_clause}}
     "
-    .self$FK_TEMPLATE <- "
+    .self$FK_CONSTRAINT_TEMPLATE <- "
         FOREIGN KEY
             ({{fk_name}})
         REFERENCES
@@ -145,7 +73,7 @@ ORM$methods(initialize=function(database_path=NULL, model_definitions=NULL, conn
         "SELECT_WHERE_TEMPLATE",
         "INSERT_WHERE_TEMPLATE",
         "UPDATE_WHERE_TEMPLATE",
-        "FK_TEMPLATE"
+        "FK_CONSTRAINT_TEMPLATE"
     )) {
         .self[[field]] <- gsub("\n|(^\\s+)|(\\s+$)", "", .self[[field]])
         .self[[field]] <- gsub("\\s+", " ", .self[[field]])
@@ -183,69 +111,12 @@ ORM$methods(models=function(models=NULL) {
         # print(.self$model_definitions_)
         .self$model_objects_ <- list()
         for (definition in .self$model_definitions_) {
-            .self$model_objects_[[definition$table]] <- model_builder(definition, .self)
+            .self$model_objects_[[definition$table]] <- model_builder(
+                definition, .self
+            )
         }
     }
     return (.self$model_objects_)
-})
-
-ORM$methods(analyse_model_definitions_=function() {
-    potential_mutual_links <- list()
-    validated_mutual_links <- list()
-    for(schema in .self$model_definitions_) {
-        schema$mutual_fk <- list()
-        schema$unidirectionnal_fk <- list()
-        if (length(schema$fk) != 0) {
-            linked_schemas <- potential_mutual_links[[schema$table]]
-            linked_tables <- purrr::map(linked_schemas, function(x)x$table)
-            mutuals <- (
-                Filter(function(fk) {
-                    return (any(grepl(fk, linked_tables, fixed=TRUE)))
-                }, schema$fk)
-            )
-            for (other in purrr::map(mutuals, function(x).self$model_definitions_[[x]])) {
-                schema$mutual_fk[[other$table]] <- TRUE
-                other$mutual_fk[[schema$table]] <- TRUE
-                if (length(validated_mutual_links[[schema$table]]) == 0) {
-                    validated_mutual_links[[schema$table]] <- list(other$table)
-                } else {
-                    validated_mutual_links[[schema$table]][[
-                        length(validated_mutual_links[[schema$table]])+1
-                    ]] <- other$table
-                }
-                if (length(validated_mutual_links[[other$table]]) == 0) {
-                    validated_mutual_links[[other$table]] <- list(schema$table)
-                } else {
-                    validated_mutual_links[[other$table]][[
-                        length(validated_mutual_links[[other$table]])+1
-                    ]] <- schema$table
-                }
-            }
-            for (name in schema$fk) {
-                if (length(potential_mutual_links[[name]]) > 0) {
-                    potential_mutual_links[[name]][[
-                        length(potential_mutual_links[[name]])+1
-                    ]] <- schema
-                } else {
-                    potential_mutual_links[[name]] <- list(schema)
-                }
-            }
-        }
-    }
-    for(schema in .self$model_definitions_) {
-        if (length(schema$fk) > 0) {
-            mutual_links <- validated_mutual_links[[schema$table]]
-            if(length(mutual_links) != length(schema$fk)) {
-                ## we ignore fks that are resolved through linkage tables
-                for (fk in schema$fk) {
-                    if (!any(grepl(fk, mutual_links, fixed=TRUE))) {
-                        schema$unidirectionnal_fk[[fk]] <- sprintf("%s_id", fk)
-                    }
-                }
-            }
-        }
-    }
-    return (.self)
 })
 
 ORM$methods(connect=function() {
@@ -277,11 +148,11 @@ ORM$methods(disconnect=function(remove=FALSE) {
     }
     return (!.self$connected_)
 })
-ORM$methods(TABLE_FIELD=function(...) {
-    return (.self$TABLE_FIELD_(.self, ...))
+ORM$methods(where_clause=function(...) {
+    return (WhereClause(.self, ...))
 })
-ORM$methods(WHERE_CLAUSE=function(...) {
-    return (.self$WHERE_CLAUSE_(.self, ...))
+ORM$methods(join_clause=function(...) {
+    return (JoinClause(.self, ...))
 })
 ORM$methods(with_connection=function(code) {
     "\\cr
@@ -469,50 +340,47 @@ ORM$methods(create_database=function(no_exists=TRUE) {
     "\\cr
     Create the database with the curent models.
     "
-    # potential_mutual_links <- list()
-    # validated_mutual_links <- list()
     created_mutual <- list()
     for(schema in .self$model_definitions_) {
-        if (length(schema$fk) == 0) {
+        if (length(schema$one) == 0) {
             request <- .self$create_table_without_fk_request(
                 schema, no_exists=no_exists
             )
             .self$add_to_request_pool(request)
-            print(request)
-        } else {
-            for (mutual in names(schema$mutual_fk)) {
-                mutual_id <- paste0(mutual, schema$table)
-                if (is.null(created_mutual[[mutual_id]])) {
-                    created_mutual[[mutual_id]] <- TRUE
-                    created_mutual[[paste0(schema$table, mutual)]] <- TRUE
-                    other <- (
-                        .self$model_definitions_[[mutual]]
-                    )
-                    request <- .self$create_linkage_table_request(
-                        schema, other, no_exists=no_exists
-                    )
+        }
+        if(length(schema$many) > 0) {
+            for (mutual in schema$many) {
+                if (schema$table < mutual) {
+                    tables <- c(schema$table, mutual)
+                } else {
+                    tables <- c(mutual, schema$table)
+                }
+                link_id <- paste(tables, collapse=";")
+                if (is.null(created_mutual[[link_id]])) {
+                    created_mutual[[link_id]] <- TRUE
+                    other <- .self$model_definitions_[[mutual]]
+                    ## we create a linkage table using tables name
+                    ## ordered alphabetically, si it's reproducible.
+                    if (schema$table < other$table) {
+                        request <- .self$create_linkage_table_request(
+                            schema, other, no_exists=no_exists
+                        )
+                    } else {
+                        request <- .self$create_linkage_table_request(
+                            other, schema, no_exists=no_exists
+                        )
+                    }
                     .self$add_to_request_pool(request)
-                    print(request)
                 }
             }
         }
     }
     for(schema in .self$model_definitions_) {
-        if (length(schema$fk) > 0) {
-            if (length(schema$unidirectionnal_fk) > 0) {
-                ## we ignore fks that are resolved through linkage tables
-                request <- .self$create_table_with_fks_request(
-                    schema, no_exists=no_exists
-                )
-            } else {
-                ## all fk are mutual, there are only linkage tables.
-                ## no fk are needed anymore: we ignore fks
-                request <- .self$create_table_without_fk_request(
-                    schema, no_exists=no_exists
-                )
-            } 
+        if (length(schema$one) > 0) {
+            request <- .self$create_table_with_fks_request(
+                schema, no_exists=no_exists
+            )
             .self$add_to_request_pool(request)
-            print(request)
         }
     }
     requests <- .self$request_pool
@@ -576,8 +444,8 @@ ORM$methods(create_linkage_table_request=function(schema, other, no_exists=TRUE)
     )
     fields <- paste(
         .self$build_fields_declaration(list(fields=fk_definitions)),
-        .self$build_fk(other$table),
-        .self$build_fk(schema$table),
+        .self$build_fk_constraint(other$table),
+        .self$build_fk_constraint(schema$table),
         sep=", "
     )
     return (fill_template(
@@ -594,26 +462,21 @@ ORM$methods(create_table_with_fks_request=function(schema, no_exists=TRUE) {
     Create the request string for the given model (must have one/some fks).
     May disapear or change quickly. Don't rely on it.
     "
-    fk_constraints <- list()
-    for (table in names(schema$unidirectionnal_fk)) {
-        fk_constraints[[length(fk_constraints)+1]] <- .self$build_fk(table)
-    }
+    fk_constraints <- paste(map(schema$one, .self$build_fk_constraint), collapse=", ")
     fields <- build_fields_declaration(schema)
-    fk_constraints <- paste(fk_constraints, collapse=", ")
-    fk_definitions <- rep(list("INTEGER"), length(schema$unidirectionnal_fk))
-    names(fk_definitions) <- schema$unidirectionnal_fk
-    fk_definitions <- build_fields_declaration(list(fields=fk_definitions))
     if_no_exists <- c(.self$IF_NO_EXISTS, "")[[no_exists+1]]
     return (fill_template(
         .self$CREATE_TABLE_TEMPLATE,
         table=schema$table,
-        fields=paste(fields, fk_definitions, fk_constraints, sep=", "),
+        fields=sprintf("%s, %s", fields, fk_constraints),
         if_no_exists=if_no_exists
     ))
 })
 
-ORM$methods(create_select_request=function(table="", fields=NULL, where=NULL) {
-    "\\cr
+ORM$methods(create_select_request=function(
+    table="", fields=NULL, join=NULL, where=NULL
+) {
+    "\
     Internal method. Do not use.
     Create the request string to select some fields from one table,
     can have a `where` clause.
@@ -623,6 +486,7 @@ ORM$methods(create_select_request=function(table="", fields=NULL, where=NULL) {
         .self$SELECT_WHERE_TEMPLATE,
         table=table,
         fields=.self$build_select_fields(fields, table=table),
+        join_clause=.self$build_join_clause(join),
         where_clause=.self$build_where_clause(where)
     ))
     return (result)
@@ -638,7 +502,7 @@ ORM$methods(create_insert_request=function(table="", fields=NULL, values=NULL, w
     if (is.null(fields) || length(fields) == 0) {
         fields <- ""
     } else {
-        fields <- paste("(", do.call(paste, list(fields, collapse=", ")), ")")
+        fields <- sprintf("(%s)", paste(fields, collapse=", "))
     }
     result <- (fill_template(
         .self$INSERT_WHERE_TEMPLATE,
@@ -772,6 +636,10 @@ ORM$methods(build_where_clause=function(where=NULL, sub=FALSE) {
     return (paste(result, collapse=" "))
 })
 
+ORM$methods(build_join_clause=function(join) {
+    return (paste(join, collapse=" "))
+})
+
 ORM$methods(fill_template=function(template, ...) {
     "\\cr
     Internal method. Do not use.
@@ -797,22 +665,137 @@ ORM$methods(build_fields_declaration=function(schema) {
     fields <- schema[["fields"]]
     field_names <- names(fields)
     for (i in seq_along(fields)) {
-        type <- fields[[i]]
-        field_list[[i]] <- paste(field_names[[i]], type)
+        ## id is defined into the template, so we ignore it.
+        if (field_names[[i]] != "id") {
+            type <- fields[[i]]
+            field_list[[length(field_list)+1]] <- paste(field_names[[i]], type)
+        }
     }
-    return (do.call(paste, list(field_list, collapse=", ")))
+    return (paste(field_list, collapse=", "))
 })
 
-ORM$methods(build_fk=function(reference, foreign_field="id") {
-    "\\cr
+ORM$methods(build_fk_constraint=function(reference, foreign_field="id") {
+    "\
     Internal method. Do not use.
     Create the `fk restrictions` part of a create table request.
     May disapear or change quickly. Don't rely on it.
     "
     return (fill_template(
-        .self$FK_TEMPLATE,
-        fk_name=paste(reference, "id", sep="_"),
+        .self$FK_CONSTRAINT_TEMPLATE,
+        fk_name=sprintf("%s_id", reference),
         table=reference,
         foreign_field=foreign_field
     ))
 })
+
+
+
+OperatorClause <- setRefClass(
+    "OperatorClause", fields=c(left="character", right="character", operator="character"),
+    methods=list(initialize=function(orm=NULL, left="", right="", operator="=") {
+        if (is.null(orm)) {
+            return (.self)
+        }
+        .self$left <- left
+        .self$right <- right
+    }, as.request=function() {
+        return (sprintf(
+            "%s %s %s", .self$left, .self$operator, .self$right
+        ))
+    }, show=function(){cat(.self$as.request())})
+)
+
+
+TableField <- setRefClass(
+    "TableField", fields=c(table="character", field="character"),
+    methods=list(initialize=function(orm=NULL, table="", field="") {
+        if (is.null(orm)) {
+            return (.self)
+        }
+        .self$table <- table
+        .self$field <- field
+    }, as.request=function() {
+        return (sprintf("'%s'.'%s'", .self$table, .self$field))
+    }, show=function(){cat(.self$as.request())})
+)
+
+
+JoinClause <- setRefClass(
+    "JoinClause", fields=c(table="character", on="OperatorClause"),
+    methods=list(initialize=function(orm=NULL, table="", on=NULL) {
+        if (is.null(orm) || is.null(on)) {
+            return (.self)
+        }
+        .self$table <- table
+        .self$on <- on
+    }, as.request=function() {
+        return (sprintf("JOIN %s ON %s", table, on$as.request()))
+    }, show=function(){cat(.self$as.request())})
+)
+
+WhereClause <- setRefClass(
+    "WhereClause", fields=c(
+        field="TableField",
+        operator="character",
+        value="character",
+        next_connector="character",
+        next_clause="character"
+    ),
+    methods=list(initialize=function(
+        orm=NULL, field="", operator="", value="",
+        next_connector=NULL, next_clause=NULL
+    ){
+        if (is.null(orm)) {
+            return (.self)
+        }
+        if (!any(grepl(
+            sprintf("^%s$", operator),
+            orm$OPERATORS,
+            perl=TRUE,
+            ignore.case=TRUE
+        ))) {
+            stop(sprintf(
+                "Malformed Where Clause: Bad operator: %s", operator
+            ))
+        }
+        .self$field <- field
+        .self$operator <- operator
+        .self$value <- orm$escape(value)
+        if (!is.null(next_connector) && !is.null(next_clause)) {
+            if (!any(grepl(
+                sprintf("^%s$", next_connector),
+                orm$LOGICAL_CONNECTORS,
+                perl=TRUE,
+                ignore.case=TRUE
+            ))) {
+                stop(paste0(
+                    "Unknown logical connector between this where ",
+                    "clause and the following: %s"
+                ), next_connector)
+            }
+            .self$next_connector <- next_connector
+            .self$next_clause <- next_clause$as.request()
+        } else {
+            .self$next_connector <- "NONE"
+        }
+    }, as.request=function(){
+        if (.self$next_connector == "NONE") {
+            return (sprintf(
+                "%s %s %s",
+                .self$field$as.request(),
+                .self$operator,
+                .self$value
+            ))
+        }
+        return (sprintf(
+            "%s %s %s %s %s",
+            .self$field$as.request(),
+            .self$operator,
+            .self$value,
+            .self$next_connector,
+            .self$next_clause
+        ))
+    }, show=function(){
+        return(print(.self$as.request()))
+    })
+)

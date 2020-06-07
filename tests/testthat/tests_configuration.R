@@ -21,8 +21,7 @@ MODELS <- list(
             oidscore="INTEGER",
             quasi="INTEGER",
             ips="FLOAT"
-        ),
-        fk=list()
+        )
     ),
     cluster=ModelDefinition(
         table="cluster",
@@ -42,7 +41,8 @@ MODELS <- list(
             align_group="INTEGER",
             xcms_group="INTEGER"
         ),
-        fk=list("sample", "compound", "feature")
+        one=list("sample", "compound"),
+        many=list("feature")
     ),
     compound=ModelDefinition(
         table="compound",
@@ -53,8 +53,7 @@ MODELS <- list(
             charge="INTEGER",
             date="TEXT",
             mz="REAL"
-        ),
-        fk=list()
+        )
     ),
     feature=ModelDefinition(
         table="feature",
@@ -71,7 +70,7 @@ MODELS <- list(
             iso="TEXT",
             abundance="FLOAT"
         ),
-        fk=list("cluster")
+        many=list("cluster")
     ),
     instrument=ModelDefinition(
         table="instrument",
@@ -80,8 +79,7 @@ MODELS <- list(
             manufacturer="TEXT",
             analyzer="TEXT",
             dector_type="TEXT"
-        ),
-        fk=list()
+        )
     ),
     instrument_config=ModelDefinition(
         table="instrument_config",
@@ -92,16 +90,14 @@ MODELS <- list(
             number_of_scan_range="TEXT",
             scan_range="TEXT",
             version="TEXT"
-        ),
-        fk=list()
+        )
     ),
     software=ModelDefinition(
         table="software",
         fields=list(
             name="TEXT",
             version="TEXT"
-        ),
-        fk=list()
+        )
     ),
     sample=ModelDefinition(
         table="sample",
@@ -112,6 +108,6 @@ MODELS <- list(
             polarity="TEXT",
             raw="BLOB"
         ),
-        fk=list("instrument", "instrument_config", "software")
+        one=list("instrument", "instrument_config", "software")
     )
 )
