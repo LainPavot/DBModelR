@@ -1,5 +1,11 @@
+#'
+#' @import RSQLite
+NULL
 
 
+#' Compare two models using their class and their fields
+#' @param e1 A model instance
+#' @param e2 A model instance
 setMethod("==", signature("ModelMeta", "ModelMeta"), function(e1, e2) {
     if(!is(e1, class(e2))) {
         return (FALSE)
@@ -143,10 +149,10 @@ ModelMeta$methods(load_from_request__=function(request) {
     "
     result <- (.self$orm__$with_query(request, {
         context <- .self$orm__$execution_context
-        results <- RSQLite::dbFetch(context$rs)
-        if (RSQLite::dbGetRowCount(context$rs) == 0) {
+        results <- dbFetch(context$rs)
+        if (dbGetRowCount(context$rs) == 0) {
             result <- NULL
-        } else if (RSQLite::dbGetRowCount(context$rs) > 1) {
+        } else if (dbGetRowCount(context$rs) > 1) {
             result <- .self$load_multiple_from_data__(results)
         } else {
             result <- .self$load_one_from_data__(results)
@@ -162,7 +168,7 @@ ModelMeta$methods(load_multiple_from_data__=function(multiple) {
     "\\cr
     "
     generator <- .self$getRefClass()
-    return (purrr::map(1:nrow(multiple), function(row) {
+    return (map(seq_len(nrow(multiple)), function(row) {
         generator()$load_one_from_data__(multiple[row,])
     }))
 })
@@ -216,7 +222,9 @@ ModelMeta$methods(save=function(bulk=FALSE, return_request=FALSE) {
             new_row <- FALSE
         }
     } else {
-        stop(sprintf("%s$save(bulk=TRUE) is not implemented yet.", model_name__))
+        stop(sprintf(
+            "%s$save(bulk=TRUE) is not implemented yet.", model_name__
+        ))
     }
     get_id <- (
         if (new_row) "SELECT last_insert_rowid() as id"
@@ -224,7 +232,7 @@ ModelMeta$methods(save=function(bulk=FALSE, return_request=FALSE) {
     )
     .self$orm__$with_atomic(
         before={
-            RSQLite::dbClearResult(.self$orm__$send_statement(request))
+            dbClearResult(.self$orm__$send_statement(request))
             .self$orm__$get_query(get_id)
         },
         then={

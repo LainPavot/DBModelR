@@ -1,21 +1,26 @@
 Package: DBModelR
-Title: A Model-Database interface to make the database layer abstract.
+Title: A Model-Database interface to make the database layer abstract
 Description: DBModelR is an ORM (Object Relational Mapping) that
     allow developpers to interact with a sqlite database transparently,
     through R objects.
     Objects describes the database's schema, can generate the described
     database, and access it transparently to load and save informations.
-License: GPLv3+
-Version: 0.1
-Authors@R: person(
-    "Lain", "Pavot",
-    email="lain.pavot@protonmail.com",
-    role=c("aut", "cre")
-    )
-Depends: R (>= 3.1.0)
+License: file LICENSE
+Version: 0.1.0
+Author: Lain Pavot <lain.pavot@protonmail.com>
+Maintainer: Lain Pavot <lain.pavot@protonmail.com>
+biocViews: DataRepresentation
 Imports:
     RSQLite,
+    methods
+Depends:
+    R (>= 3.6),
     purrr
+Suggests:
+    testthat,
+    knitr,
+    rmarkdown
+VignetteBuilder: knitr
 Collate: 
     'class_definitions.R'
     'model_builder.R'
@@ -25,3 +30,4 @@ Collate:
 NeedsCompilation: no
 Encoding: UTF-8
 RoxygenNote: 7.1.0
+

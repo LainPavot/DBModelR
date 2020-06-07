@@ -1,4 +1,10 @@
 
+
+#' Returns asked method or attribute.
+#' If the attribute is a model name, it is returned as if the model was
+#' a attribute of the ORM instance.
+#' @param x A orm instance
+#' @param name The name of the attribute/method
 setMethod("$", "ORM", function(x, name) {
     model <- selectMethod(
         "$", "envRefClass"
@@ -50,10 +56,10 @@ ORM$methods(initialize=function(database_path=NULL, model_definitions=NULL, conn
             {{table}} (id INTEGER PRIMARY KEY, {{foreign_keys}})
     "
     .self$SELECT_WHERE_TEMPLATE <- "
-        SELECT {{fields}} FROM {{table}} {{where_clause}}
+        SELECT {{fields}} FROM {{table}} {{join_clause}} {{where_clause}}
     "
     .self$INSERT_WHERE_TEMPLATE <- "
-        INSERT INTO {{table}} {{fields}} VALUES {{values}} {{join_clause}} {{where_clause}}
+        INSERT INTO {{table}} {{fields}} VALUES {{values}} {{where_clause}}
     "
     .self$UPDATE_WHERE_TEMPLATE <- "
         UPDATE {{table}} SET {{update_values}} {{where_clause}}
@@ -85,7 +91,7 @@ ORM$methods(is_connected=function() {
     "\\cr
     Return TRUE if the orm is connected to the database ; FALSE otherwise.
     "
-    return (.self$connected_)
+    return (dbIsValid(.self$connection_))
 })
 
 ORM$methods(models=function(models=NULL) {
@@ -526,12 +532,9 @@ ORM$methods(create_update_request=function(table="", values=NULL, where=NULL) {
         stop("Cannot update a table with no given values.")
     }
     fields <- names(values)
-    update_values <- paste(
-        purrr::map(1:length(fields), function(x){
-            paste(fields[[x]], .self$escape(values[[x]]), sep=" = ")
-        }),
-        collapse=", "
-    )
+    update_values <- paste(map(seq_along(fields), function(x){
+        sprintf("%s = %s", fields[[x]], .self$escape(values[[x]]))
+    }), collapse=", ")
     result <- (fill_template(
         .self$UPDATE_WHERE_TEMPLATE,
         table=table,
@@ -649,7 +652,7 @@ ORM$methods(fill_template=function(template, ...) {
     replacements <- list(...)
     for (string in names(replacements)) {
         replacement <- replacements[string]
-        string <- paste("{{", string, "}}", sep="")
+        string <- sprintf("{{%s}}", string)
         template <- gsub(string, replacement, template, fixed=TRUE)
     }
     return (template)

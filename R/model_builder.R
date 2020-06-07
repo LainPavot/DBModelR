@@ -208,6 +208,8 @@ inject_local_function_dependencies_ <- function(func, begin, ...) {
 #'
 #' @param model A `ModelDefinition` object.
 #' @param orm An `ORM` object.
+#' @param additional_fields A `list` to define additionnal fields
+#' @param ... Any args passer to setRefClass
 #' @author Lain Pavot
 model_builder <- function(model, orm, additional_fields=list(), ...) {
     class_name <- class_name_from_table_name_(model$table)
