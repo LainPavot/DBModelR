@@ -184,6 +184,7 @@ ORM <- setRefClass(
     fields=c(
         model_definitions_="list",
         model_objects_="list",
+        in_memory="logical",
         connected_="logical",
         connection_="SQLiteConnection",
         database_path="character",

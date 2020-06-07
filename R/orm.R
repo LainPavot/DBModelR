@@ -15,13 +15,22 @@ setMethod("$", "ORM", function(x, name) {
     return (model)
 })
 
-ORM$methods(initialize=function(database_path=NULL, model_definitions=NULL, connect=TRUE) {
-    "\\cr
-    database_path: A string that represent the location of the database to connect to.
-    model_definitions: A list of ModelDefinition instances, that defines the database schema.
-    connect: A boolean telling weither the orm will try to connect to the database during instantiation or not.
+ORM$methods(initialize=function(
+    database_path=NULL,
+    model_definitions=NULL,
+    connect=TRUE,
+    in_memory=FALSE
+) {
+    "\
+    database_path: A string that represent the location of the database
+    to connect to.
+    model_definitions: A list of ModelDefinition instances, that defines
+    the database schema.
+    connect: A boolean telling weither the orm will try to connect to the
+    database during instantiation or not.
+    in_memory: A boolean telling weither database is in memory or on disc.
     "
-    .self$connected_ <- FALSE
+    .self$in_memory <- in_memory
     if (!is.null(model_definitions)) {
         .self$models(model_definitions)
     }
@@ -97,24 +106,28 @@ ORM$methods(is_connected=function() {
 ORM$methods(models=function(models=NULL) {
     "\\cr
     With no parameters:
-        Returns a named list of the form list(adduct=AdductModel, compound=CompoundModel)
-        With each model being a class generator used to create models you will manipulate.
+        Returns a named list of the form list(adduct=AdductModel,
+        compound=CompoundModel)
+        With each model being a class generator used to create models
+        you will manipulate.
     With one argument:
-        The argument must be a list of ModelDefinition instances, that defines the database schema.
-        Creates the model classes for to these models, and return them in the form of a named list.
+        The argument must be a list of ModelDefinition instances, that
+        defines the database schema.
+        Creates the model classes for to these models, and return them
+        in the form of a named list.
     "
     if (!is.null(models)) {
         .self$model_definitions_ <- models
         if (
             is.null(names(.self$model_definitions_)) ||
-            length(names(.self$model_definitions_)) != length(.self$model_definitions_)
+            length(names(
+                .self$model_definitions_
+            )) != length(.self$model_definitions_)
         ) {
             names(.self$model_definitions_) <- (
                 purrr::map(.self$model_definitions_, function(x)x$table)
             )
         }
-        .self$analyse_model_definitions_()
-        # print(.self$model_definitions_)
         .self$model_objects_ <- list()
         for (definition in .self$model_definitions_) {
             .self$model_objects_[[definition$table]] <- model_builder(
@@ -128,11 +141,17 @@ ORM$methods(models=function(models=NULL) {
 ORM$methods(connect=function() {
     "\\cr
     Call this method to connect the orm to the database.
-    Returns TRUE if the orm has connected successfully or if it was already connected.
+    Returns TRUE if the orm has connected successfully or if it was
+    already connected.
     "
-    if ((.self$database_path != "") && (!.self$connected_)) {
-        .self$connection_ <- RSQLite::dbConnect(
-            RSQLite::SQLite(), .self$database_path
+    if ((.self$database_path != "") && (!.self$is_connected())) {
+        if (.self$in_memory) {
+            path <- "file::memory:"
+        } else {
+            path <- .self$database_path
+        }
+        .self$connection_ <- dbConnect(
+            SQLite(), path
         )
         .self$connected_ <- TRUE
     }
@@ -166,9 +185,9 @@ ORM$methods(with_connection=function(code) {
     The orm connects to the database, executes the expression and then disconnect from the database.
     Returns the result of the exprssion.
     "
-    if (!.self$connected_) {
+    if (!.self$is_connected()) {
         .self$connect()
-        if (!.self$connected_) {
+        if (!.self$is_connected()) {
             stop("Could not connect to the database.")
         }
         res <- .self$with_connection(code)
