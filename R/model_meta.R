@@ -28,7 +28,7 @@ setMethod("==", signature("ModelMeta", "ModelMeta"), function(e1, e2) {
 
 
 ModelMeta$methods(initialize=function(...) {
-    "\\cr
+    "\
     "
     callSuper(...)
     .self$modified__ <- list()
@@ -64,7 +64,7 @@ ModelMeta$methods(table_field=function(field) {
 
 
 ModelMeta$methods(show=function() {
-    "\\cr
+    "\
     "
     cat(paste(
         sprintf("<%s [id: %d]>: ", .self$table__, .self$get_id()),
@@ -86,14 +86,14 @@ ModelMeta$methods(show=function() {
 
 
 ModelMeta$methods(load=function(id){
-    "\\cr
+    "\
     "
     return(.self$load_by(id=id))
 })
 
 
-ModelMeta$methods(load_by=function(...){
-    "\\cr
+ModelMeta$methods(load_by=function(...) {
+    "\
     "
     fields <- list(...)
     where <- list()
@@ -143,9 +143,17 @@ ModelMeta$methods(load_by=function(...){
     return (.self$load_from_request__(request))
 })
 
+ModelMeta$methods(load_join=function(...) {
+    join_list <- list(...)
+    map(join_list, function(join) {
+        .self$orm$JoinClause(
+            table=join$table
+        )
+    })
+})
 
 ModelMeta$methods(load_from_request__=function(request) {
-    "\\cr
+    "\
     "
     result <- (.self$orm__$with_query(request, {
         context <- .self$orm__$execution_context
@@ -165,7 +173,7 @@ ModelMeta$methods(load_from_request__=function(request) {
 
 
 ModelMeta$methods(load_multiple_from_data__=function(multiple) {
-    "\\cr
+    "\
     "
     generator <- .self$getRefClass()
     return (map(seq_len(nrow(multiple)), function(row) {
@@ -175,7 +183,7 @@ ModelMeta$methods(load_multiple_from_data__=function(multiple) {
 
 
 ModelMeta$methods(load_one_from_data__=function(row) {
-    "\\cr
+    "\
     "
     for (field in names(row)) {
         .self[[field]] <- row[[field]]
@@ -187,7 +195,7 @@ ModelMeta$methods(load_one_from_data__=function(row) {
 
 
 ModelMeta$methods(save=function(bulk=FALSE, return_request=FALSE) {
-    "\\cr
+    "\
     "
     ## bulk is not used for the moment ; too complicated, and
     ## perhaps useless in XSeeker:
