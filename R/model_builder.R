@@ -262,6 +262,7 @@ model_builder <- function(model, orm, additional_fields=list(), ...) {
         fields=c(fields, additional_fields),
         methods=methods,
         contains="ModelMeta",
+        where=.GlobalEnv,
         ...
     )
     do.call(generator$methods, methods)
