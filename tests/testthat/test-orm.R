@@ -1,6 +1,4 @@
 
-require("testthat")
-require("purrr")
 testthat::context("ORM tests")
 
 
@@ -28,13 +26,10 @@ testthat::test_that("ORM connection tests", {
     testthat::expect_true(file.exists(DB_PATH))
 })
 
-orm$with_connection({
-    requests <- do.call(c, purrr::map(orm$create_database(), as.vector))
-})
+orm$connect()
 
+requests <- do.call(c, purrr::map(orm$create_database(), as.vector))
 testthat::test_that("ORM schema generation", {
-    testthat::expect_false(orm$is_connected())
-    testthat::expect_true(orm$disconnect())
     testthat::expect_equal(requests[order(requests)], c(
         "CREATE TABLE  adduct (id INTEGER PRIMARY KEY, name TEXT, mass FLOAT, charge INTEGER, multi INTEGER, formula_add TEXT, formula_ded TEXT, sign TEXT, oidscore INTEGER, quasi INTEGER, ips FLOAT)",
         "CREATE TABLE  cluster (id INTEGER PRIMARY KEY, formula TEXT, annotation TEXT, coeff REAL, r_squared REAL, charge INTEGER, mean_rt REAL, score REAL, deviation REAL, status TEXT, adduct TEXT, curent_group INTEGER, pc_group INTEGER, align_group INTEGER, xcms_group INTEGER, sample_id INTEGER, compound_id INTEGER, FOREIGN KEY (sample_id) REFERENCES sample (id), FOREIGN KEY (compound_id) REFERENCES compound (id))",
@@ -80,8 +75,6 @@ dichlorophenol <- orm$compound(
     date='2017-09-01',
     mz=161.96392016799998714
 )
-
-orm$connect()
 
 testthat::test_that("ORM models saving in database", {
     testthat::expect_equal(
@@ -140,6 +133,38 @@ testthat::test_that("ORM model updating", {
         ),
         "UPDATE compound SET charge = 1, name = 'Dichlorophenouuul' WHERE 'compound'.'id' == 4"
     )
+})
+
+
+
+## to be sure that our SQL-I protection works, we must create an
+## unsecured orm, and then test that the flaw works.
+## Finaly test that it doesn't work anymore with a secured (normal) orm.
+orm$with_unsafe_mode__({
+    orm$compound(
+        name="'unsecured_1'",
+        common_name="'trichlorophenol', 456.789) --",
+        mz=123.456
+    )$save()
+})
+
+result <- orm$compound()$load_by(name="unsecured_1")
+
+testthat::test_that("Unsecured ORM SQL Injections success", {
+    testthat::expect_equal(result$get_common_name(), "trichlorophenol")
+    testthat::expect_equal(result$get_mz(), 456.789)
+})
+
+orm$compound(
+    name="secured_1",
+    common_name="'trichlorophenol', 456.789) --",
+    mz=123.456
+)$save()
+result <- orm$compound()$load_by(name="secured_1")
+
+testthat::test_that("Secured ORM SQL Injections prevented", {
+    testthat::expect_equal(result$common_name, "'trichlorophenol', 456.789) --")
+    testthat::expect_equal(result$mz, 123.456)
 })
 
 orm$disconnect()
