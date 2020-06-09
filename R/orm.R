@@ -5,6 +5,7 @@
 #' a attribute of the ORM instance.
 #' @param x A orm instance
 #' @param name The name of the attribute/method
+#' @return The orm's attributes with name \code{name}
 setMethod("$", "ORM", function(x, name) {
     model <- selectMethod(
         "$", "envRefClass"
@@ -45,6 +46,9 @@ ORM$methods(initialize=function(
     }
     .self$execution_context <- list()
     .self$request_pool <- list()
+    .self$sql <- list(
+        distinct="DISTINCT "
+    )
     .self$OPERATORS <- list(
         GE=">=", LE="<=",
         GT=">",  LT="<",
@@ -66,7 +70,10 @@ ORM$methods(initialize=function(
             {{table}} (id INTEGER PRIMARY KEY, {{foreign_keys}})
     "
     .self$SELECT_WHERE_TEMPLATE <- "
-        SELECT {{fields}} FROM {{table}} {{join_clause}} {{where_clause}}
+        SELECT {{distinct}}{{fields}} FROM {{table}} {{join_clause}} {{where_clause}}
+    "
+    .self$DELETE_WHERE_TEMPLATE <- "
+        DELETE FROM {{table}} {{where_clause}}
     "
     .self$INSERT_WHERE_TEMPLATE <- "
         INSERT INTO {{table}} {{fields}} VALUES {{values}} {{where_clause}}
@@ -87,6 +94,7 @@ ORM$methods(initialize=function(
         "CREATE_TABLE_TEMPLATE",
         "CREATE_LINKAGE_TABLE_TEMPLATE",
         "SELECT_WHERE_TEMPLATE",
+        "DELETE_WHERE_TEMPLATE",
         "INSERT_WHERE_TEMPLATE",
         "UPDATE_WHERE_TEMPLATE",
         "FK_CONSTRAINT_TEMPLATE"
@@ -173,6 +181,9 @@ ORM$methods(disconnect=function(remove=FALSE) {
     }
     return (!.self$is_connected())
 })
+ORM$methods(operator_clause=function(...) {
+    return (OperatorClause(.self, ...))
+})
 ORM$methods(table_field=function(...) {
     return (TableField(.self, ...))
 })
@@ -220,8 +231,9 @@ ORM$methods(with_connection=function(code) {
 ORM$methods(with_atomic=function(before, then) {
     "
     The `before` parameter and the `then` parameter are expressions.
-    The orm will execute your `before` code while ensuring that the requests
-    will be in a atomic transaction, and then, call your `after` block.
+    The orm will execute your `before` code while ensuring that the
+    requests will be in a atomic transaction, and then, call your `after`
+    block.
     A context is accessible in both your expression as the
     `execution_context` attribute of the orm (orm$execution_context).
     You can see a code example at the end of this helpstring.
@@ -460,7 +472,9 @@ ORM$methods(delete_request_pool=function() {
     .self$request_pool <- list()
 })
 
-ORM$methods(create_table_without_fk_request=function(schema, no_exists=TRUE) {
+ORM$methods(create_table_without_fk_request=function(
+    schema, no_exists=TRUE
+) {
     "
     Internal method. Do not use.
     Create the request string for the given model (mustn't have fks).
@@ -481,7 +495,8 @@ ORM$methods(create_linkage_table_request=function(
 ) {
     "
     Internal method. Do not use.
-    Create the request string for the linkage table between the  given models.
+    Create the request string for the linkage table between the  given
+    models.
     May disapear or change quickly. Don't rely on it.
     "
     if_no_exists <- c(.self$IF_NO_EXISTS, "")[[no_exists+1]]
@@ -510,7 +525,9 @@ ORM$methods(create_table_with_fks_request=function(schema, no_exists=TRUE) {
     Create the request string for the given model (must have one/some fks).
     May disapear or change quickly. Don't rely on it.
     "
-    fk_constraints <- paste(map(schema$one, .self$build_fk_constraint), collapse=", ")
+    fk_constraints <- paste(map(
+        schema$one, .self$build_fk_constraint
+    ), collapse=", ")
     fields <- build_fields_declaration(schema)
     if_no_exists <- c(.self$IF_NO_EXISTS, "")[[no_exists+1]]
     return (fill_template(
@@ -522,7 +539,7 @@ ORM$methods(create_table_with_fks_request=function(schema, no_exists=TRUE) {
 })
 
 ORM$methods(create_select_request=function(
-    table="", fields=NULL, join=NULL, where=NULL
+    table="", fields=NULL, join=NULL, where=NULL, distinct=FALSE, additionnal_froms=list()
 ) {
     "
     Internal method. Do not use.
@@ -530,11 +547,36 @@ ORM$methods(create_select_request=function(
     can have a `where` clause.
     May disapear or change quickly. Don't rely on it.
     "
+    if (length(additionnal_froms) > 0) {
+        from_table <- sprintf(
+            "%s, %s",
+            table,
+            do.call(paste, c(additionnal_froms, collapse=", "))
+        )
+    } else {
+        from_table <- table
+    }
     result <- (fill_template(
         .self$SELECT_WHERE_TEMPLATE,
-        table=table,
+        table=from_table,
         fields=.self$build_select_fields(fields, table=table),
         join_clause=.self$build_join_clause(join),
+        where_clause=.self$build_where_clause(where),
+        distinct=list("", .self$sql$distinct)[[distinct+1]]
+    ))
+    return (result)
+})
+
+ORM$methods(create_delete_request=function(table="",  where=NULL) {
+    "
+    Internal method. Do not use.
+    Create the request string to delete some entries from one table,
+    can have a `where` clause.
+    May disapear or change quickly. Don't rely on it.
+    "
+    result <- (fill_template(
+        .self$DELETE_WHERE_TEMPLATE,
+        table=table,
         where_clause=.self$build_where_clause(where)
     ))
     return (result)
@@ -563,7 +605,9 @@ ORM$methods(create_insert_request=function(
     ))
     return (result)
 })
-ORM$methods(create_update_request=function(table="", values=NULL, where=NULL) {
+ORM$methods(create_update_request=function(
+    table="", values=NULL, where=NULL
+) {
     "
     Internal method. Do not use.
     Create the request string to update some values in one table,
@@ -577,7 +621,10 @@ ORM$methods(create_update_request=function(table="", values=NULL, where=NULL) {
     }
     fields <- names(values)
     update_values <- paste(map(seq_along(fields), function(x){
-        sprintf("%s = %s", fields[[x]], .self$escape(values[[x]]))
+        sprintf("%s = %s", fields[[x]], .self$escape(
+            if (is(values[[x]], "ModelMeta")) values[[x]]$get_id()
+            else values[[x]]
+        ))
     }), collapse=", ")
     result <- (fill_template(
         .self$UPDATE_WHERE_TEMPLATE,
@@ -598,14 +645,15 @@ ORM$methods(build_insert_values=function(values=NULL) {
         stop("Can't insert into a table with no any value.")
     }
     if (!.self$is_connected()) {
-        values <- .self$with_connection({
-            map(values, function(x) {
-                return (.self$escape(x))
-            })
-        })
+        return(.self$with_connection({
+            .self$build_insert_values(values)
+        }))
     } else {
         values <- map(values, function(x) {
-            return (.self$escape(x))
+            return (.self$escape(
+                if (is(x, "ModelMeta"))x$get_id()
+                else x
+            ))
         })
     }
     return (paste("(", do.call(paste, list(values, collapse=", ")), ")"))
@@ -621,10 +669,23 @@ ORM$methods(build_select_fields=function(fields, table=NULL) {
         fields <- list("*")
     }
     if (is.null(table) || table == "") {
-        return (do.call(paste, list(fields, collapse=", ")))
+        return (do.call(paste, list(
+            purrr::map(fields, function(x) {
+                if (is(x, "TableField")) {
+                    return (x$as.request())
+                } else {
+                    return (sprintf("%s.%s", table, x))
+                }
+            }), collapse=", ")))
     } else {
         return (do.call(paste, list(
-            purrr::map(fields, function(x)sprintf("%s.%s", table, x)),
+            purrr::map(fields, function(x) {
+                if (is(x, "TableField")) {
+                    return (x$as.request())
+                } else {
+                    return (sprintf("%s.%s", table, x))
+                }
+            }),
             collapse=", "
         )))
     }
@@ -636,7 +697,7 @@ ORM$methods(build_where_clause=function(where=NULL, sub=FALSE) {
     Create the `where` part of a request.
     May disapear or change quickly. Don't rely on it.
     "
-    if (is.null(where)) {
+    if (is.null(where) || length(where) == 0) {
         return ("")
     }
     if (sub) {
@@ -697,8 +758,11 @@ ORM$methods(build_where_clause=function(where=NULL, sub=FALSE) {
     return (paste(result, collapse=" "))
 })
 
-ORM$methods(build_join_clause=function(join) {
-    return (paste(join, collapse=" "))
+ORM$methods(build_join_clause=function(join=NULL) {
+    if (is.null(join) || length(join) == 0) {
+        return ("")
+    }
+    return (paste(map(join, function(x){x$as.request()}), collapse=" "))
 })
 
 ORM$methods(fill_template=function(template, ...) {
@@ -729,7 +793,9 @@ ORM$methods(build_fields_declaration=function(schema) {
         ## id is defined into the template, so we ignore it.
         if (field_names[[i]] != "id") {
             type <- fields[[i]]
-            field_list[[length(field_list)+1]] <- paste(field_names[[i]], type)
+            field_list[[
+                length(field_list)+1
+            ]] <- paste(field_names[[i]], type)
         }
     }
     return (paste(field_list, collapse=", "))
@@ -750,113 +816,158 @@ ORM$methods(build_fk_constraint=function(reference, foreign_field="id") {
 })
 
 
+OperatorClause$methods(initialize=function(
+    orm=NULL, left=NULL, right=NULL, operator="="
+) {
+    if (is.null(orm) || is.null(left) || is.null(right)) {
+        return (.self)
+    }
+    .self$left <- left
+    .self$right <- right
+    .self$operator <- operator
+})
 
-OperatorClause <- setRefClass(
-    "OperatorClause", fields=c(left="character", right="character", operator="character"),
-    methods=list(initialize=function(orm=NULL, left="", right="", operator="=") {
-        if (is.null(orm)) {
-            return (.self)
-        }
-        .self$left <- left
-        .self$right <- right
-    }, as.request=function() {
-        return (sprintf(
-            "%s %s %s", .self$left, .self$operator, .self$right
+OperatorClause$methods(as.request=function() {
+    return (sprintf(
+        "%s %s %s",
+        .self$left$as.request(),
+        .self$operator,
+        .self$right$as.request()
+    ))
+})
+
+OperatorClause$methods(show=function(){
+    cat(.self$as.request())
+})
+
+
+TableField$methods(initialize=function(orm=NULL, table="", field="") {
+    if (is.null(orm)) {
+        return (.self)
+    }
+    .self$table <- table
+    .self$field <- field
+})
+
+TableField$methods(as.request=function() {
+    return (sprintf("'%s'.'%s'", .self$table, .self$field))
+})
+
+TableField$methods(show=function(){
+    cat(.self$as.request())
+})
+
+
+JoinClause$methods(initialize=function(
+    orm=NULL, table="", on=NULL, as_right="", as_left=""
+) {
+    if (is.null(orm) || is.null(on)) {
+        return (.self)
+    }
+    .self$table <- table
+    .self$on <- on
+    .self$as <- ""
+    if (as_right != "") {
+        .self$set_right_alias(as_right)
+    }
+    if (as_left != "") {
+        .self$set_left_alias(as_left)
+    }
+
+})
+
+JoinClause$methods(set_right_alias=function(as) {
+    .self$as <- as
+    if (.self$as != "") {
+        .self$on$right$table <- .self$as
+    }
+})
+
+JoinClause$methods(set_left_alias=function(as) {
+    .self$as <- as
+    if (.self$as != "") {
+        .self$on$left$table <- .self$as
+    }
+})
+
+JoinClause$methods(as.request=function() {
+    return (sprintf("INNER JOIN %s ON %s", (
+        if (.self$as != "") sprintf("%s %s", .self$table, .self$as)
+        else table
+    ), on$as.request()))
+})
+
+JoinClause$methods(show=function(){
+    cat(.self$as.request())
+})
+
+
+WhereClause$methods(initialize=function(
+    orm=NULL, field="", operator="", value="",
+    next_connector=NULL, next_clause=NULL
+){
+    if (is.null(orm)) {
+        return (.self)
+    }
+    if (!any(grepl(
+        sprintf("^%s$", operator),
+        orm$OPERATORS,
+        perl=TRUE,
+        ignore.case=TRUE
+    ))) {
+        stop(sprintf(
+            "Malformed Where Clause: Bad operator: %s", operator
         ))
-    }, show=function(){cat(.self$as.request())})
-)
-
-
-TableField <- setRefClass(
-    "TableField", fields=c(table="character", field="character"),
-    methods=list(initialize=function(orm=NULL, table="", field="") {
-        if (is.null(orm)) {
-            return (.self)
-        }
-        .self$table <- table
-        .self$field <- field
-    }, as.request=function() {
-        return (sprintf("'%s'.'%s'", .self$table, .self$field))
-    }, show=function(){cat(.self$as.request())})
-)
-
-
-JoinClause <- setRefClass(
-    "JoinClause", fields=c(table="character", on="OperatorClause"),
-    methods=list(initialize=function(orm=NULL, table="", on=NULL) {
-        if (is.null(orm) || is.null(on)) {
-            return (.self)
-        }
-        .self$table <- table
-        .self$on <- on
-    }, as.request=function() {
-        return (sprintf("JOIN %s ON %s", table, on$as.request()))
-    }, show=function(){cat(.self$as.request())})
-)
-
-WhereClause <- setRefClass(
-    "WhereClause", fields=c(
-        field="TableField",
-        operator="character",
-        value="character",
-        next_connector="character",
-        next_clause="character"
-    ),
-    methods=list(initialize=function(
-        orm=NULL, field="", operator="", value="",
-        next_connector=NULL, next_clause=NULL
-    ){
-        if (is.null(orm)) {
-            return (.self)
-        }
+    }
+    if (!is(field, "TableField")) {
+        stop("WhereClause$field must be a TableField instance")
+    }
+    .self$field <- field
+    .self$operator <- operator
+    .self$value <- orm$escape(value)
+    if (!is.null(next_connector) && !is.null(next_clause)) {
         if (!any(grepl(
-            sprintf("^%s$", operator),
-            orm$OPERATORS,
+            sprintf("^%s$", next_connector),
+            orm$LOGICAL_CONNECTORS,
             perl=TRUE,
             ignore.case=TRUE
         ))) {
-            stop(sprintf(
-                "Malformed Where Clause: Bad operator: %s", operator
-            ))
+            stop(paste0(
+                "Unknown logical connector between this where ",
+                "clause and the following: %s"
+            ), next_connector)
         }
-        .self$field <- field
-        .self$operator <- operator
-        .self$value <- orm$escape(value)
-        if (!is.null(next_connector) && !is.null(next_clause)) {
-            if (!any(grepl(
-                sprintf("^%s$", next_connector),
-                orm$LOGICAL_CONNECTORS,
-                perl=TRUE,
-                ignore.case=TRUE
-            ))) {
-                stop(paste0(
-                    "Unknown logical connector between this where ",
-                    "clause and the following: %s"
-                ), next_connector)
-            }
-            .self$next_connector <- next_connector
+        .self$next_connector <- next_connector
+        if (is(next_clause, "WhereClause")) {
             .self$next_clause <- next_clause$as.request()
         } else {
-            .self$next_connector <- "NONE"
+            .self$next_clause <- next_clause
         }
-    }, as.request=function(){
-        if (.self$next_connector == "NONE") {
-            return (sprintf(
-                "%s %s %s",
-                .self$field$as.request(),
-                .self$operator,
-                .self$value
-            ))
-        }
+    } else {
+        .self$next_connector <- "NONE"
+    }
+})
+
+WhereClause$methods(as.request=function(){
+    if (.self$next_connector == "NONE") {
         return (sprintf(
-            "%s %s %s %s %s",
+            "%s %s %s",
             .self$field$as.request(),
             .self$operator,
-            .self$value,
-            .self$next_connector,
-            .self$next_clause
+            .self$value
         ))
-    }, show=function(){
-        return(print(.self$as.request()))
-    })
-)
+    }
+    return (sprintf(
+        "%s %s %s %s %s",
+        .self$field$as.request(),
+        .self$operator,
+        .self$value,
+        .self$next_connector,
+        .self$next_clause
+    ))
+})
+
+WhereClause$methods(show=function(){
+    return(print(.self$as.request()))
+})
+

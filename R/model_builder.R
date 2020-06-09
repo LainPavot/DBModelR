@@ -30,10 +30,13 @@ generate_methods_ <- function(model, class_name, fields) {
 generate_setters_getters_ <- function(model, class_name, fields) {
     methods <- list()
     for (field in names(fields)) {
-        if (grepl("^.*_id$", field)[[1]]) {
+        if (any(grepl("^.*_id$", field))) {
             table <- sub("_id$", "", field)
-            getter <- generate_fk_getter_(table, field)
-            setter <- generate_fk_setter_(class_name, table)
+            if (any(grepl(sprintf("^%s$", table), model$one))) {
+                getter <- generate_fk_getter_(table, field)
+                setter <- generate_fk_setter_(class_name, table)
+                field <- table
+            }
         } else {
             getter <- generate_getter_(field)
             setter <- generate_setter_(class_name, field, fields[[field]])
@@ -42,19 +45,29 @@ generate_setters_getters_ <- function(model, class_name, fields) {
         methods[[sprintf("set_%s", field)]] <- setter
     }
     for (table in model$many) {
-        methods[[sprintf("get_%s", field)]] <- generate_get_many(model, table)
-        methods[[sprintf("add_%s", field)]] <- generate_add_many(model, class_name, table)
-        methods[[sprintf("set_%s", field)]] <- generate_set_many(model, class_name, table)
+        methods[[sprintf("get_%s", table)]] <- (
+            generate_get_many(model, table)
+        )
+        methods[[sprintf("add_%s", table)]] <- (
+            generate_add_many(model, table)
+        )
+        methods[[sprintf("set_%s", table)]] <- (
+            generate_set_many(model, table)
+        )
+        methods[[sprintf("remove_%s", table)]] <- (
+            generate_remove_many(model, table)
+        )
     }
     return (methods)
 }
 
 generate_fk_setter_ <- function(class_name, table_name) {
     setter <- function(value) {
-        table_name <- table_name
-        .self$cache[[table_name]] <- value
+        field <- field
+        .self$modified__[[field]] <- value
     }
-    setter <- inject_local_function_dependencies_(setter, 2, table_name)
+    field <- sprintf("%s_id", table_name)
+    setter <- inject_local_function_dependencies_(setter, 2, field)
     return (setter)
 }
 
@@ -62,16 +75,19 @@ generate_fk_getter_ <- function(table_name, field) {
     getter <- function() {
         table_name <- table_name
         field <- field
-        if (is.null(.self$cache[[table_name]])) {
-            .self$cache[[table_name]] <- (
-                .self$orm$model_objects_[[
+        no_cache <- TRUE
+        if (is.null(.self$cache_read__[[table_name]]) || no_cache) {
+            .self$cache_read__[[table_name]] <- (
+                .self$orm__$model_objects_[[
                     table_name
                 ]]()$load(.self[[field]])
             )
         }
-        return (.self$cache[[table_name]])
+        return (.self$cache_read__[[table_name]])
     }
-    getter <- inject_local_function_dependencies_(getter, 2, table_name, field)
+    getter <- inject_local_function_dependencies_(
+        getter, 2, table_name, field
+    )
     return (getter)
 }
 
@@ -123,49 +139,65 @@ generate_setter_ <- function(class_name, field, type) {
         .self[[field]] <- value
         return (.self)
     }
-    setter <- inject_local_function_dependencies_(setter, 2, field, err_string, test)
+    setter <- inject_local_function_dependencies_(
+        setter, 2, field, err_string, test
+    )
     return (setter)
 }
 
 generate_get_many <- function(schema, other_table) {
-    getter <- function() {
+    getter <- function(...) {
         linkage_table_name <- linkage_table_name
         other_table <- other_table
-        if (is.null(.self$cache[[other_table]])) {
-            other <- .self$orm$model_objects_[[other_table]]()
-            .self$cache[[other_table]] <- (
+        no_cache <- length(list(...)) != 0
+        no_cache <- TRUE
+        if (is.null(.self$cache_read__[[other_table]]) || no_cache) {
+            other <- .self$orm__$model_objects_[[other_table]]()
+            result <- (
                 other$load_by(
+                    distinct=TRUE,
+                    add_from=list(.self$table__),
                     other$join_clause(
                         table=linkage_table_name,
-                        on=OperatorClause(
-                            left=other$table_field("id")$as.request(),
-                            right=.self$orm$table_field(
+                        on=.self$operator_clause(
+                            left=other$table_field("id"),
+                            right=.self$orm__$table_field(
                                 table=linkage_table_name,
                                 field=sprintf("%s_id", other$table__)
-                            )$as.request(),
-                            operator=.self$OPERATORS$EQ
-                        )
+                            ),
+                            operator=.self$orm__$OPERATORS$EQ
+                        ),
+                        as_right="link_1"
                     ),
                     other$join_clause(
                         table=linkage_table_name,
-                        on=OperatorClause(
-                            left=.self$table_field("id")$as.request(),
-                            right=.self$orm$table_field(
-                                table=linkage_table_name,
+                        on=.self$operator_clause(
+                            left=.self$table_field("id"),
+                            right=.self$orm__$table_field(
+                                table="link_2",
                                 field=sprintf("%s_id", .self$table__)
-                            )$as.request(),
-                            operator=.self$OPERATORS$EQ
-                        )
-                    )
+                            ),
+                            operator=.self$orm__$OPERATORS$EQ
+                        ),
+                        as_right="link_2"
+                    ),
+                    ...
                 )
             )
+            if (!is.list(result)) {
+                result <- list(result)
+            }
+            if (no_cache) {
+                return (result)
+            }
+            .self$cache_read__[[other_table]] <- result
         }
-        return (.self$cache[[other_table]])
+        return (.self$cache_read__[[other_table]])
     }
     if (schema$table < other_table) {
-        linkage_table_name <- c(schema$table, other_table)
+        linkage_table_name <- sprintf("%s_%s", schema$table, other_table)
     } else {
-        linkage_table_name <- c(schema$table, other_table)
+        linkage_table_name <- sprintf("%s_%s", other_table, schema$table)
     }
     getter <- inject_local_function_dependencies_(
         getter, 2,
@@ -174,12 +206,86 @@ generate_get_many <- function(schema, other_table) {
     return (getter)
 }
 
-generate_add_many <- function(schema, class_name, table) {
-    return ()
+generate_add_many <- function(schema, other_table) {
+    adder <- function(value) {
+        target_class <- target_class
+        if (!is.list(value)) {
+            value <- list(value)
+        }
+        if (is.null(.self$cache_add__[[value[[1]]$table__]])) {
+            .self$cache_add__[[value[[1]]$table__]] <- list()
+        }
+        for (obj in value) {
+            if (!is(obj, target_class)) {
+                stop(sprintf(
+                    "Trying to add a %s that is not a Model to a %s",
+                    target_class, class(.self)
+                ))
+            }
+            .self$cache_add__[[obj$table__]][[
+                length(.self$cache_add__[[obj$table__]])+1
+            ]] <- obj
+        }
+        return (.self)
+    }
+    adder <- inject_local_function_dependencies_(
+        adder, 2, class_name_from_table_name_(other_table)
+    )
+    return (adder)
 }
 
-generate_set_many <- function(schema, class_name, table) {
-    return ()
+generate_set_many <- function(schema, other_table) {
+    setter <- function(value) {
+        target_class <- target_class
+        if (!is.list(value)) {
+            value <- list(value)
+        } 
+        .self$cache_add__[[value[[1]]$table__]] <- list()
+        for (obj in value) {
+            if (!is(obj, target_class)) {
+                stop(sprintf(
+                    "Trying to add a %s that is not a Model to a %s",
+                    target_class, class(.self)
+                ))
+            }
+            .self$cache_add__[[obj$table__]][[
+                length(.self$cache_add__[[obj$table__]])+1
+            ]] <- obj
+        }
+        return (.self)
+    }
+    setter <- inject_local_function_dependencies_(
+        setter, 2, class_name_from_table_name_(other_table)
+    )
+    return (setter)
+}
+
+generate_remove_many <- function(schema, other_table) {
+    remover <- function(value) {
+        target_class <- target_class
+        if (!is.list(value)) {
+            value <- list(value)
+        } 
+        if (is.null(.self$cache_remove__[[value[[1]]$table__]])) {
+            .self$cache_remove__[[value[[1]]$table__]] <- list()
+        }
+        for (obj in value) {
+            if (!is(obj, target_class)) {
+                stop(sprintf(
+                    "Trying to add a %s that is not a Model to a %s",
+                    target_class, class(.self)
+                ))
+            }
+            .self$cache_remove__[[obj$table__]][[
+                length(.self$cache_remove__[[obj$table__]])+1
+            ]] <- obj
+        }
+        return (.self)
+    }
+    remover <- inject_local_function_dependencies_(
+        remover, 2, class_name_from_table_name_(other_table)
+    )
+    return (remover)
 }
 
 class_name_from_table_name_ <- function(table_name) {
@@ -210,7 +316,7 @@ inject_local_function_dependencies_ <- function(func, begin, ...) {
 #' @param orm An `ORM` object.
 #' @param additional_fields A `list` to define additionnal fields
 #' @param ... Any args passer to setRefClass
-#' @author Lain Pavot
+#' @return The generator of the class created from the \code{model}
 model_builder <- function(model, orm, additional_fields=list(), ...) {
     class_name <- class_name_from_table_name_(model$table)
     fields <- sqlite_fields_to_R_types_(model$fields)

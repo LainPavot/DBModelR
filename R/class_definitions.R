@@ -190,11 +190,13 @@ ORM <- setRefClass(
         database_path="character",
         request_pool="list",
         execution_context="list",
+        sql="list",
         DELETE_ALL_TABLES="character",
         IF_NO_EXISTS="character",
         CREATE_TABLE_TEMPLATE="character",
         CREATE_LINKAGE_TABLE_TEMPLATE="character",
         SELECT_WHERE_TEMPLATE="character",
+        DELETE_WHERE_TEMPLATE="character",
         INSERT_WHERE_TEMPLATE="character",
         UPDATE_WHERE_TEMPLATE="character",
         FK_CONSTRAINT_TEMPLATE="character",
@@ -244,6 +246,136 @@ ModelMeta <- setRefClass(
         model_name__="character",
         fields__="list",
         loaded__="logical",
+        cache_read__="list",
+        cache_remove__="list",
+        cache_add__="list",
         id="numeric"
+    )
+)
+
+
+
+#' Class TableField (and methods)
+#'
+#' A class that defines a table's field. Translates to 'table'.'field'
+#'
+#' @export TableField
+#' @exportClass TableField
+#'
+#' @examples
+#' 
+#' library(RSQLite)
+#' orm <- ORM(in_memory=TRUE)
+#' print(TableField(orm, "test", "field")$as.request)
+TableField <- setRefClass(
+    "TableField",
+    fields=c(
+        table="character",
+        field="character"
+    )
+)
+
+#' Class OperatorClause (and methods)
+#'
+#' OperatorClause class defines a right and left TableFields and an
+#' operator.
+#' It translates to 'left'.'field' {{operator}} 'right'.'field'
+#'
+#' @export OperatorClause
+#' @exportClass OperatorClause
+#'
+#' @examples
+#' 
+#' library(RSQLite)
+#' orm <- ORM(in_memory=TRUE)
+#' f1 <- TableField(orm, "test", "field")
+#' f2 <- TableField(orm, "test2", "field2")
+#' print(OperatorClause(
+#'     orm,
+#'     left=f1,
+#'     right=f2,
+#'     operator=orm$OPERATORS$GE
+#' )$as.request)
+OperatorClause <- setRefClass(
+    "OperatorClause",
+    fields=c(
+        left="TableField",
+        right="TableField",
+        operator="character"
+    )
+)
+
+
+#' Class JoinClause (and methods)
+#'
+#' JoinClause class defines a join clause between two tables.
+#'
+#' @export JoinClause
+#' @exportClass JoinClause
+#'
+#' @examples
+#' 
+#' library(RSQLite)
+#' orm <- ORM(in_memory=TRUE)
+#' f1 <- TableField(orm, "test", "field")
+#' f2 <- TableField(orm, "test2", "field2")
+#' op <- OperatorClause(
+#'     orm,
+#'     left=f1,
+#'     right=f2,
+#'     operator=orm$OPERATORS$GE
+#' )
+#' print(JoinClause(orm, table="test", on=op))
+JoinClause <- setRefClass(
+    "JoinClause",
+    fields=c(
+        table="character",
+        on="OperatorClause",
+        as="character"
+    )
+)
+
+
+#' Class WhereClause (and methods)
+#'
+#' WhereClause class defines a Where clause, that can encapsulate other
+#' where clause(s)
+#'
+#' @export WhereClause
+#' @exportClass WhereClause
+#'
+#' @examples
+#' 
+#' library(RSQLite)
+#' orm <- ORM(in_memory=TRUE)
+#' 
+#' print(WhereClause(
+#'     orm,
+#'     field=TableField(
+#'         orm,
+#'         table="linkage_table_name",
+#'         field=sprintf("%s_id", "table_1")
+#'     ),
+#'     operator=orm$OPERATORS$EQ,
+#'     value="id_1",
+#'     next_connector=orm$LOGICAL_CONNECTORS$AND,
+#'     next_clause=WhereClause(
+#'         orm,
+#'         field=TableField(
+#'             orm,
+#'             table="linkage_table_name",
+#'             field=sprintf("%s_id", "table_2")
+#'         ),
+#'         operator=orm$OPERATORS$EQ,
+#'         value="id_2"
+#'     )
+#' ))
+WhereClause <- setRefClass(
+    "WhereClause", fields=c(
+        field="TableField",
+        operator="character",
+        value="character",
+        next_connector="character",
+        next_clause="character"
     )
 )

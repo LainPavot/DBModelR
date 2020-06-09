@@ -99,7 +99,7 @@ ModelDefinition$methods(initialize=function(
     .self$many <- many
     .self$one <- one
     .self$fields$id <- "INTEGER"
-    for(field in one) {
-        .self$fields[[paste0(field, "_id")]] <- "INTEGER"
+    for(table in one) {
+        .self$fields[[paste0(table, "_id")]] <- "INTEGER"
     }
 })
