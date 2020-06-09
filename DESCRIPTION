@@ -4,7 +4,10 @@ Description: DBModelR is an ORM (Object Relational Mapping) that
     allow developpers to interact with a sqlite database transparently,
     through R objects.
     Objects describes the database's schema, can generate the described
-    database, and access it transparently to load and save informations.
+    database, and access it transparently to load and save and update
+    informations.
+    Links between table are created and deleted automatically if
+    necessary to prevent database growth and "dead links".
 License: file LICENSE
 Version: 0.1.0
 Author: Lain Pavot <lain.pavot@protonmail.com>
