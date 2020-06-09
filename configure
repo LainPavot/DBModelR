@@ -27,6 +27,7 @@ ${TAB}@echo "Finished."
 
 build${TAB}: clean doc
 ${TAB}@echo "Building package..."
+${TAB}\$(R_BINARY) -q -e "rmarkdown::render('README.Rmd')"
 ${TAB}\$(R_BINARY) -q -e "devtools::document('.')"
 ${TAB}\$(R_BINARY) CMD build .
 ${TAB}(${TAB}\\

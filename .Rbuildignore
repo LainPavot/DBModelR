@@ -12,3 +12,4 @@
 ^test_install_package.R$
 ^\.git$
 ^\.gitignore$
+^man/\.gitignore$
