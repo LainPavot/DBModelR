@@ -1,6 +1,6 @@
 Package: DBModelR
-Title: A Model-Database interface to make the database layer abstract
-Description: DBModelR is an ORM (Object Relational Mapping) that
+Title: A Model-Database Interface to Make the Database Layer Abstract
+Description: Defines an ORM (Object Relational Mapping) that
     allow developpers to interact with a sqlite database transparently,
     through R objects.
     Objects describes the database's schema, can generate the described
