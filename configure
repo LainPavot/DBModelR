@@ -12,9 +12,6 @@ R_BINARY="\$(R_BASE)/bin/R"
 R_SCRIPT="\$(R_BASE)/bin/Rscript"
 export R_USER=\$(USER)
 
-R_BINARY="/home/lain/R/bin/R"
-R_SCRIPT="/home/lain/R/bin/Rscript"
-
 all${TAB}${TAB}: test
 
 install${TAB}:
