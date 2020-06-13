@@ -9,7 +9,13 @@
 ^DBModelR.sublime-project$
 ^DBModelR.sublime-workspace$
 ^Makefile$
-^test_install_package.R$
+^configure$
+^README\.md$
+^README\.Rmd$
+^submit_cran\.R$
+^test_install_package\.R$
 ^\.git$
 ^\.gitignore$
 ^man/\.gitignore$
+^DBModelR_\d+\.\d+\.\d+\.tar\.gz$
+^CRAN-RELEASE$

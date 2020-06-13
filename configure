@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 HOME="$(realpath ~)"
 R_DIRECTORY="${HOME}/R"
@@ -34,6 +34,7 @@ ${TAB}(${TAB}\\
 ${TAB}${TAB}dot=\`pwd\`;${TAB}\\
 ${TAB}${TAB}cd /tmp/ ;${TAB}\\
 ${TAB}${TAB}\$(R_BINARY) CMD check "\$\${dot}"/*.tar.gz ;${TAB}${TAB}\\
+${TAB}${TAB}\$(R_BINARY) CMD check --as-cran "\$\${dot}"/*.tar.gz ;${TAB}${TAB}\\
 ${TAB}${TAB}\$(R_BINARY) CMD BiocCheck "\$\${dot}"/*.tar.gz${TAB}\\
 ${TAB})
 ${TAB}@echo "Built."
@@ -46,6 +47,11 @@ doc${TAB}${TAB}:
 ${TAB}@echo "Generating doc..."
 ${TAB}@\$(R_BINARY) -q -e 'library("roxygen2");roxygenize(".");warnings()'
 ${TAB}@echo "Generated."
+
+
+submit:
+${TAB}@echo "source('./submit_cran.R')"
+${TAB}\$(R_BINARY)
 
 
 .PHONY${TAB}: all test build clean doc
