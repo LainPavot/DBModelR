@@ -25,6 +25,9 @@ Depends:
     R (>= 3.6),
     purrr
 Suggests:
+    RPostgres,
+    RMySQL,
+    MariaDB,
     testthat,
     knitr,
     rmarkdown

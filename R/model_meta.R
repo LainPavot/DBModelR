@@ -76,7 +76,14 @@ ModelMeta$methods(table_field=function(field) {
 ModelMeta$methods(show=function() {
     "\
     "
-    cat(paste(
+    cat(.self$as.character())
+})
+
+
+ModelMeta$methods(as.character=function() {
+    "\
+    "
+    return (paste(
         sprintf("<%s [id: %d]>: ", .self$table__, .self$get_id()),
         do.call(paste, c(map(
                 Filter(function(x){x!="id"}, names(.self$fields__)),

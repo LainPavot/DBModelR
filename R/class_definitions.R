@@ -215,18 +215,21 @@ ORM <- setRefClass(
         escape_values__must_be_true__="logical",
         dbms__="character",
         SQLITE="character",
-        POSSIBLE_DBMS="list",
-        DBMS_METHODS="list",
+        POSTGRESQL="character",
+        MARIADB="character",
+        MYSQL="character",
+        DBMS_PACKAGES="list",
 
-        is_connected="function",
-        connect="function",
-        disconnect="function",
-        clear_result="function",
-        execute="function",
-        send_query="function",
-        get_query="function",
-        send_statement="function",
-        escape="function"
+        dbms_env="environment"
+        # is_connected="function",
+        # connect="function",
+        # disconnect="function",
+        # clear_result="function",
+        # execute="function",
+        # send_query="function",
+        # get_query="function",
+        # send_statement="function",
+        # escape="function"
     )
 )
 

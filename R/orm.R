@@ -33,21 +33,26 @@ ORM$methods(initialize=function(
     in_memory: A boolean telling weither database is in memory or on disc.
     "
     .self$SQLITE <- "SQLite"
-    .self$POSSIBLE_DBMS <- list(
-        .self$SQLITE
-    )
-    .self$DBMS_METHODS <- list()
-    .self$DBMS_METHODS[[.self$SQLITE]] <- list(
-        is_connected=.self$is_connected_sqlite,
-        connect=.self$connect_sqlite,
-        disconnect=.self$disconnect_sqlite,
-        clear_result=.self$clear_result_sqlite,
-        execute=.self$execute_sqlite,
-        send_query=.self$send_query_sqlite,
-        get_query=.self$get_query_sqlite,
-        send_statement=.self$send_statement_sqlite,
-        escape=.self$escape_sqlite
-    )
+    .self$POSTGRESQL <- "PostgreSQL"
+    .self$MARIADB <- "MariaDB"
+    .self$MYSQL <- "MySQL"
+    .self$DBMS_PACKAGES <- list()
+    .self$DBMS_PACKAGES[[.self$SQLITE]] <- "RSQLite"
+    .self$DBMS_PACKAGES[[.self$POSTGRESQL]] <- "RPostgres"
+    .self$DBMS_PACKAGES[[.self$MARIADB]] <- "RMariaDB"
+    .self$DBMS_PACKAGES[[.self$MYSQL]] <- "RMySQL"
+    #list(
+    #     is_connected=.self$is_connected_sqlite,
+    #     connect=.self$connect_sqlite,
+    #     disconnect=.self$disconnect_sqlite,
+    #     clear_result=.self$clear_result_sqlite,
+    #     execute=.self$execute_sqlite,
+    #     send_query=.self$send_query_sqlite,
+    #     get_query=.self$get_query_sqlite,
+    #     send_statement=.self$send_statement_sqlite,
+    #     escape=.self$escape_sqlite,
+    #     package="RSQLite"
+    # )
     .self$set_dbms(dbms)
     .self$escape_values__must_be_true__ <- TRUE
     .self$in_memory <- in_memory
@@ -159,53 +164,48 @@ ORM$methods(models=function(models=NULL) {
 })
 
 ORM$methods(set_dbms=function(dbms) {
-    if (any(grepl(sprintf("^%s$", dbms), .self$POSSIBLE_DBMS))) {
+    dbms_names <- names(.self$DBMS_PACKAGES)
+    if (any(grepl(sprintf("^%s$", dbms), dbms_names))) {
+        package <- .self$DBMS_PACKAGES[[dbms]]
+        if(package %in% rownames(installed.packages()) == FALSE) {
+            stop(sprintf(
+                "You must install %s before you set the dbms to %s.",
+                package, dbms
+            ))
+        }
+        library(package, character.only=TRUE, quietly=TRUE, verbose=FALSE)
+        .self$dbms_env <- as.environment(sprintf("package:%s", package))
         .self$dbms__ <- dbms
-        methods <- .self$DBMS_METHODS[[.self$dbms__]]
     } else {
         stop(sprintf(
-            "Unknown DBMS: %s. Possible DBMS: %s",
-            dbms, .self$POSSIBLE_DBMS
-        ))
+            "Unknown DBMS: %s. Possible DBMS: %s", dbms, dbms_names))
     }
-    .self$is_connected <- methods[["is_connected"]]
-    .self$connect <- methods[["connect"]]
-    .self$disconnect <- methods[["disconnect"]]
-    .self$clear_result <- methods[["clear_result"]]
-    .self$execute <- methods[["execute"]]
-    .self$send_query <- methods[["send_query"]]
-    .self$get_query <- methods[["get_query"]]
-    .self$send_statement <- methods[["send_statement"]]
-    .self$escape <- methods[["escape"]]
 })
 
-ORM$methods(is_connected_sqlite=function() {
+ORM$methods(is_connected=function() {
     "
     Return TRUE if the orm is connected to the database ; FALSE otherwise.
     "
-    return (RSQLite::dbIsValid(.self$connection_))
+    return (.self$dbms_env[["dbIsValid"]](.self$connection_))
 })
 
-ORM$methods(connect_sqlite=function() {
+ORM$methods(connect=function() {
     "
     Call this method to connect the orm to the database.
     Returns TRUE if the orm has connected successfully or if it was
     already connected.
     "
     if ((.self$database_path != "") && (!.self$is_connected())) {
-        if (.self$in_memory) {
-            path <- "file::memory:"
-        } else {
-            path <- .self$database_path
-        }
-        .self$connection_ <- RSQLite::dbConnect(
-            RSQLite::SQLite(), path
+        path <- (
+            if (.self$in_memory) "file::memory:"
+            else .self$database_path
         )
+        .self$connection_ <- .self$dbms_env[["dbConnect"]](RSQLite::SQLite(), path)
     }
     return (.self$is_connected())
 })
 
-ORM$methods(disconnect_sqlite=function(remove=FALSE) {
+ORM$methods(disconnect=function(remove=FALSE) {
     "
     Call this method to disconnect the orm from the database.
     This method should always be called when the is terminated.
@@ -213,54 +213,55 @@ ORM$methods(disconnect_sqlite=function(remove=FALSE) {
     disconnected.
     "
     if (.self$is_connected()) {
-        RSQLite::dbDisconnect(.self$connection_)
+        .self$dbms_env[["dbDisconnect"]](.self$connection_)
         if (remove) {
             file.remove(.self$database_path)
         }
     }
     return (!.self$is_connected())
 })
-ORM$methods(clear_result_sqlite=function(rs) {
-    RSQLite::dbClearResult(rs)
+ORM$methods(clear_result=function(rs) {
+    "
+    Calls .self$dbms_env[['dbClearResult']] on the given rs.
+    "
+    .self$dbms_env[["dbClearResult"]](rs)
 })
 
-ORM$methods(execute_sqlite=function(request) {
+ORM$methods(execute=function(request) {
     "
-    Calls RSQLite::dbExecute with the curent connection.
+    Calls .self$dbms_env[['dbExecute']] with the curent connection.
     "
-    return (RSQLite::dbExecute(.self$connection_, request))
+    return (.self$dbms_env[["dbExecute"]](.self$connection_, request))
 })
 
-ORM$methods(send_query_sqlite=function(request) {
+ORM$methods(send_query=function(request) {
     "
-    Calls RSQLite::dbSendQuery with the curent connection.
+    Calls .self$dbms_env[['dbSendQuery']] with the curent connection.
     "
-    return (RSQLite::dbSendQuery(.self$connection_, request))
+    return (.self$dbms_env[["dbSendQuery"]](.self$connection_, request))
 })
 
-ORM$methods(get_query_sqlite=function(request) {
+ORM$methods(get_query=function(request) {
     "
-    Calls RSQLite::dbGetQuery with the curent connection.
+    Calls .self$dbms_env[['dbGetQuery']] with the curent connection.
     "
-    return (RSQLite::dbGetQuery(.self$connection_, request))
+    return (.self$dbms_env[["dbGetQuery"]](.self$connection_, request))
 })
 
-ORM$methods(send_statement_sqlite=function(request) {
+ORM$methods(send_statement=function(request) {
     "
-    Calls RSQLite::dbSendStatement with the curent connection.
+    Calls .self$dbms_env[['dbSendStatement']] with the curent connection.
     "
-    return (RSQLite::dbSendStatement(.self$connection_, request))
+    return (.self$dbms_env[["dbSendStatement"]](.self$connection_, request))
 })
 
-ORM$methods(escape_sqlite=function(input) {
+ORM$methods(escape=function(input) {
     "
-    Calls RSQLite::dbQuoteLiteral with the curent connection.
+    Calls .self$dbms_env[['dbQuoteLiteral']] with the curent connection.
     http://xkcd.com/327/
     "
     if (.self$escape_values__must_be_true__) {
-        return (RSQLite::dbQuoteLiteral(
-            .self$connection_, input
-        ))
+        return (.self$dbms_env[["dbQuoteLiteral"]](.self$connection_, input))
     }
     return (input)
 })
