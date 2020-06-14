@@ -105,13 +105,6 @@ ORM$methods(initialize=function(
     return(.self)
 })
 
-ORM$methods(is_connected=function() {
-    "
-    Return TRUE if the orm is connected to the database ; FALSE otherwise.
-    "
-    return (dbIsValid(.self$connection_))
-})
-
 ORM$methods(models=function(models=NULL) {
     "
     With no parameters:
@@ -147,6 +140,13 @@ ORM$methods(models=function(models=NULL) {
     return (.self$model_objects_)
 })
 
+ORM$methods(is_connected=function() {
+    "
+    Return TRUE if the orm is connected to the database ; FALSE otherwise.
+    "
+    return (RSQLite::dbIsValid(.self$connection_))
+})
+
 ORM$methods(connect=function() {
     "
     Call this method to connect the orm to the database.
@@ -159,8 +159,8 @@ ORM$methods(connect=function() {
         } else {
             path <- .self$database_path
         }
-        .self$connection_ <- dbConnect(
-            SQLite(), path
+        .self$connection_ <- RSQLite::dbConnect(
+            RSQLite::SQLite(), path
         )
     }
     return (.self$is_connected())
@@ -174,25 +174,74 @@ ORM$methods(disconnect=function(remove=FALSE) {
     disconnected.
     "
     if (.self$is_connected()) {
-        dbDisconnect(.self$connection_)
+        RSQLite::dbDisconnect(.self$connection_)
         if (remove) {
             file.remove(.self$database_path)
         }
     }
     return (!.self$is_connected())
 })
+ORM$methods(clear_result=function(rs) {
+    RSQLite::dbClearResult(rs)
+})
+
+ORM$methods(execute=function(request) {
+    "
+    Calls RSQLite::dbExecute with the curent connection.
+    "
+    return (RSQLite::dbExecute(.self$connection_, request))
+})
+
+ORM$methods(send_query=function(request) {
+    "
+    Calls RSQLite::dbSendQuery with the curent connection.
+    "
+    return (RSQLite::dbSendQuery(.self$connection_, request))
+})
+
+ORM$methods(get_query=function(request) {
+    "
+    Calls RSQLite::dbGetQuery with the curent connection.
+    "
+    return (RSQLite::dbGetQuery(.self$connection_, request))
+})
+
+ORM$methods(send_statement=function(request) {
+    "
+    Calls RSQLite::dbSendStatement with the curent connection.
+    "
+    return (RSQLite::dbSendStatement(.self$connection_, request))
+})
+
+ORM$methods(escape=function(input) {
+    "
+    Calls RSQLite::dbQuoteLiteral with the curent connection.
+    http://xkcd.com/327/
+    "
+    if (.self$escape_values__must_be_true__) {
+        return (RSQLite::dbQuoteLiteral(
+            .self$connection_, input
+        ))
+    }
+    return (input)
+})
+
 ORM$methods(operator_clause=function(...) {
     return (OperatorClause(.self, ...))
 })
+
 ORM$methods(table_field=function(...) {
     return (TableField(.self, ...))
 })
+
 ORM$methods(where_clause=function(...) {
     return (WhereClause(.self, ...))
 })
+
 ORM$methods(join_clause=function(...) {
     return (JoinClause(.self, ...))
 })
+
 ORM$methods(with_unsafe_mode__=function(code) {
     "
     Use this function only if you realy know what you do.
@@ -205,6 +254,7 @@ ORM$methods(with_unsafe_mode__=function(code) {
     .self$escape_values__must_be_true__ <- TRUE
     return (result)
 })
+
 ORM$methods(with_connection=function(code) {
     "
     One parameter: a block of code (expression)
@@ -264,7 +314,7 @@ ORM$methods(with_atomic=function(before, then) {
             print(context$rs$the_response)  ## prints '42'
 
             ## necessay to free the memory allocated for the SQLiteResult
-            dbClearResult(context$rs$the_response)
+            orm$clear_result(context$rs$the_response)
         })
         }
 
@@ -279,9 +329,9 @@ ORM$methods(with_atomic=function(before, then) {
     request between the first one and the id retrival.
     "
     .self$execution_context <- list()
-    RSQLite::dbClearResult(.self$send_statement("BEGIN TRANSACTION"))
+    .self$clear_result(.self$send_statement("BEGIN TRANSACTION"))
     .self$execution_context$rs <- force(before)
-    RSQLite::dbClearResult(.self$send_statement("COMMIT"))
+    .self$clear_result(.self$send_statement("COMMIT"))
     result <- force(then)
     .self$execution_context <- list()
     return (result)
@@ -338,50 +388,9 @@ ORM$methods(with__=function(method, request, expr) {
     rs <- method(request)
     .self$execution_context <- list(rs=rs)
     result <- expr
-    RSQLite::dbClearResult(rs)
+    .self$clear_result(rs)
     .self$execution_context <- list()
     return (result)
-})
-
-ORM$methods(execute=function(request) {
-    "
-    Calls RSQLite::dbExecute with the curent connection.
-    "
-    return (RSQLite::dbExecute(.self$connection_, request))
-})
-
-ORM$methods(send_query=function(request) {
-    "
-    Calls RSQLite::dbSendQuery with the curent connection.
-    "
-    return (RSQLite::dbSendQuery(.self$connection_, request))
-})
-
-ORM$methods(get_query=function(request) {
-    "
-    Calls RSQLite::dbGetQuery with the curent connection.
-    "
-    return (RSQLite::dbGetQuery(.self$connection_, request))
-})
-
-ORM$methods(send_statement=function(request) {
-    "
-    Calls RSQLite::dbSendStatement with the curent connection.
-    "
-    return (RSQLite::dbSendStatement(.self$connection_, request))
-})
-
-ORM$methods(escape=function(input) {
-    "
-    Calls dbQuoteLiteral with the curent connection.
-    http://xkcd.com/327/
-    "
-    if (.self$escape_values__must_be_true__) {
-        return (dbQuoteLiteral(
-            .self$connection_, input
-        ))
-    }
-    return (input)
 })
 
 ORM$methods(recreate_database=function(no_exists=TRUE) {
