@@ -1,7 +1,7 @@
 Package: DBModelR
 Title: A Model-Database Interface to Make the Database Layer Abstract
 Description: Defines an ORM (Object Relational Mapping) that
-    allow developers to interact with a sqlite database transparently,
+    allow developers to interact with a "SQLite" database transparently,
     through R objects.
     Objects describes the database's schema, can generate the described
     database, and access it transparently to load and save and update
