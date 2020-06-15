@@ -10,7 +10,7 @@ sqlite_field_to_R_type_ <- function(field) {
     } else if (identical(field, "REAL")) {
         return ("numeric")
     } else if (identical(field, "BLOB")) {
-        return ("character")
+        return ("blob")
     }
     ## todo: throw error
     return ("unknown")
@@ -106,6 +106,10 @@ generate_setter_ <- function(class_name, field, type) {
         test <- is.numeric
     } else if (type == "character") {
         test <- is.character
+    } else if (type == "blob") {
+        test <- function(x)is(x, "blob")
+    } else {
+        print(sprintf("Unknown filed type: %s", type))
     }
     err_string <- sprintf(
         "Bad field type for %s$%s.
@@ -337,8 +341,10 @@ model_builder <- function(model, orm, additional_fields=list(), ...) {
                     .self[[field]] <- params[[field]]
                 } else {
                     type <- .self$fields__[[field]]
-                    if ((type == "TEXT") || (type == "BLOB")) {
+                    if (type == "TEXT") {
                         .self[[field]] <- ""
+                    } else if (type == "BLOB") {
+                        .self[[field]] <- blob::blob()
                     } else if (type == "BOOLEAN") {
                         .self[[field]] <- FALSE
                     } else if (

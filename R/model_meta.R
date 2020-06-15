@@ -102,6 +102,13 @@ ModelMeta$methods(as.character=function() {
 })
 
 
+ModelMeta$methods(all=function(){
+    "\
+    "
+    return(.self$load_by())
+})
+
+
 ModelMeta$methods(load=function(id){
     "\
     "
