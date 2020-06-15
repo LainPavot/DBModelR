@@ -17,20 +17,17 @@ setMethod("$", "ORM", function(x, name) {
 })
 
 ORM$methods(initialize=function(
-    database_path=NULL,
     model_definitions=NULL,
     connect=TRUE,
-    in_memory=FALSE,
-    dbms="SQLite"
+    dbms="SQLite",
+    parameters=list()
 ) {
     "
-    database_path: A string that represent the location of the database
     to connect to.
     model_definitions: A list of ModelDefinition instances, that defines
     the database schema.
     connect: A boolean telling weither the orm will try to connect to the
     database during instantiation or not.
-    in_memory: A boolean telling weither database is in memory or on disc.
     "
     .self$SQLITE <- "SQLite"
     .self$POSTGRESQL <- "PostgreSQL"
@@ -41,28 +38,12 @@ ORM$methods(initialize=function(
     .self$DBMS_PACKAGES[[.self$POSTGRESQL]] <- "RPostgres"
     .self$DBMS_PACKAGES[[.self$MARIADB]] <- "RMariaDB"
     .self$DBMS_PACKAGES[[.self$MYSQL]] <- "RMySQL"
-    #list(
-    #     is_connected=.self$is_connected_sqlite,
-    #     connect=.self$connect_sqlite,
-    #     disconnect=.self$disconnect_sqlite,
-    #     clear_result=.self$clear_result_sqlite,
-    #     execute=.self$execute_sqlite,
-    #     send_query=.self$send_query_sqlite,
-    #     get_query=.self$get_query_sqlite,
-    #     send_statement=.self$send_statement_sqlite,
-    #     escape=.self$escape_sqlite,
-    #     package="RSQLite"
-    # )
+    .self$DBMS_METHODS <- list()
+    .self$set_connection_parameters(parameters)
     .self$set_dbms(dbms)
     .self$escape_values__must_be_true__ <- TRUE
-    .self$in_memory <- in_memory
     if (!is.null(model_definitions)) {
         .self$models(model_definitions)
-    }
-    if (is.null(database_path)) {
-        .self$database_path <- ""
-    } else {
-        .self$database_path <- database_path
     }
     if (connect) {
         .self$connect()
@@ -164,6 +145,7 @@ ORM$methods(models=function(models=NULL) {
 })
 
 ORM$methods(set_dbms=function(dbms) {
+    .self$disconnect()
     dbms_names <- names(.self$DBMS_PACKAGES)
     if (any(grepl(sprintf("^%s$", dbms), dbms_names))) {
         package <- .self$DBMS_PACKAGES[[dbms]]
@@ -178,15 +160,23 @@ ORM$methods(set_dbms=function(dbms) {
         .self$dbms__ <- dbms
     } else {
         stop(sprintf(
-            "Unknown DBMS: %s. Possible DBMS: %s", dbms, dbms_names))
+            "Unknown DBMS: %s. Possible DBMS: %s", dbms, dbms_names
+        ))
     }
+})
+
+ORM$methods(set_connection_parameters=function(parameters) {
+    .self$connection_parameters_ <- parameters
 })
 
 ORM$methods(is_connected=function() {
     "
     Return TRUE if the orm is connected to the database ; FALSE otherwise.
     "
-    return (.self$dbms_env[["dbIsValid"]](.self$connection_))
+    return (
+        !is.null(.self$connection_) &&
+        .self$dbms_env[["dbIsValid"]](.self$connection_)
+    )
 })
 
 ORM$methods(connect=function() {
@@ -195,12 +185,11 @@ ORM$methods(connect=function() {
     Returns TRUE if the orm has connected successfully or if it was
     already connected.
     "
-    if ((.self$database_path != "") && (!.self$is_connected())) {
-        path <- (
-            if (.self$in_memory) "file::memory:"
-            else .self$database_path
+    if (!.self$is_connected()) {
+        .self$connection_ <- do.call(
+            .self$dbms_env[["dbConnect"]],
+            c(.self$dbms_env[["SQLite"]](), .self$connection_parameters_)
         )
-        .self$connection_ <- .self$dbms_env[["dbConnect"]](RSQLite::SQLite(), path)
     }
     return (.self$is_connected())
 })
@@ -214,8 +203,8 @@ ORM$methods(disconnect=function(remove=FALSE) {
     "
     if (.self$is_connected()) {
         .self$dbms_env[["dbDisconnect"]](.self$connection_)
-        if (remove) {
-            file.remove(.self$database_path)
+        if (remove && !is.null(.self$connection_parameters_[[1]])) {
+            file.remove(.self$connection_parameters_[[1]])
         }
     }
     return (!.self$is_connected())
