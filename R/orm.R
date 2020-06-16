@@ -437,6 +437,7 @@ ORM$methods(create_database=function(no_exists=TRUE) {
     Create the database with the curent models.
     "
     created_mutual <- list()
+    linkage_requests <- list()
     for(schema in .self$model_definitions_) {
         if (length(schema$one) == 0) {
             request <- .self$create_table_without_fk_request(
@@ -466,7 +467,7 @@ ORM$methods(create_database=function(no_exists=TRUE) {
                             other, schema, no_exists=no_exists
                         )
                     }
-                    .self$add_to_request_pool(request)
+                    linkage_requests[[length(linkage_requests)+1]] <- request
                 }
             }
         }
@@ -478,6 +479,9 @@ ORM$methods(create_database=function(no_exists=TRUE) {
             )
             .self$add_to_request_pool(request)
         }
+    }
+    for (request in linkage_requests) {
+        .self$add_to_request_pool(request)
     }
     requests <- .self$request_pool
     .self$execute_request_pool()
