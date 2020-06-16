@@ -1,7 +1,7 @@
 #'
 #' @importFrom methods new selectMethod setRefClass is
 #' @importFrom purrr map
-#' @import RSQLite
+#' @import DBI
 NULL
 
 
@@ -196,8 +196,9 @@ ORM <- setRefClass(
         model_objects_="list",
         in_memory="logical",
         connected_="logical",
-        connection_="SQLiteConnection",
-        database_path="character",
+        connection_parameters_="list",
+        connection_="DBIConnection",
+        # database_path="character",
         request_pool="list",
         execution_context="list",
         sql="list",
@@ -219,9 +220,11 @@ ORM <- setRefClass(
         MARIADB="character",
         MYSQL="character",
         DBMS_PACKAGES="list",
+        DBMS_METHODS="list",
 
         dbms_env="environment"
         # is_connected="function",
+        # set_connection_parameters="function",
         # connect="function",
         # disconnect="function",
         # clear_result="function",

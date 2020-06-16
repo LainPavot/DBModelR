@@ -19,12 +19,13 @@ Authors@R: c(
 URL: https://github.com/LainPavot/DBModelR
 biocViews: DataRepresentation
 Imports:
-    RSQLite,
+    DBI,
     methods
 Depends:
     R (>= 3.6),
     purrr
 Suggests:
+    RSQLite,
     RPostgres,
     RMySQL,
     MariaDB,

@@ -30,7 +30,7 @@ ORM$methods(initialize=function(
     database during instantiation or not.
     "
     .self$SQLITE <- "SQLite"
-    .self$POSTGRESQL <- "PostgreSQL"
+    .self$POSTGRESQL <- "Postgres"
     .self$MARIADB <- "MariaDB"
     .self$MYSQL <- "MySQL"
     .self$DBMS_PACKAGES <- list()
@@ -188,7 +188,7 @@ ORM$methods(connect=function() {
     if (!.self$is_connected()) {
         .self$connection_ <- do.call(
             .self$dbms_env[["dbConnect"]],
-            c(.self$dbms_env[["SQLite"]](), .self$connection_parameters_)
+            c(.self$dbms_env[[.self$dbms__]](), .self$connection_parameters_)
         )
     }
     return (.self$is_connected())
