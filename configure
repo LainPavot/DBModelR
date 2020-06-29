@@ -32,7 +32,7 @@ ${TAB}${TAB}dot=\`pwd\`;${TAB}\\
 ${TAB}${TAB}cd /tmp/ ;${TAB}\\
 ${TAB}${TAB}\$(R_BINARY) CMD check "\$\${dot}"/*.tar.gz ;${TAB}${TAB}\\
 ${TAB}${TAB}\$(R_BINARY) CMD check --as-cran "\$\${dot}"/*.tar.gz ;${TAB}${TAB}\\
-${TAB}${TAB}\$(R_BINARY) CMD BiocCheck "\$\${dot}"/*.tar.gz${TAB}\\
+# ${TAB}${TAB}\$(R_BINARY) CMD BiocCheck "\$\${dot}"/*.tar.gz${TAB}\\
 ${TAB})
 ${TAB}@echo "Built."
 

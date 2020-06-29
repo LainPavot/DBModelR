@@ -1,7 +1,3 @@
-#'
-#' @import RSQLite
-NULL
-
 
 #' Compare two models using their class and their fields
 #' @param e1 A model instance
@@ -45,6 +41,27 @@ ModelMeta$methods(initialize=function(...) {
         table=.self$table__,
         fields=.self$fields__
     )
+    .self$NOT_CREATED <- -1
+    .self$NOT_RETRIEVED <- -2
+})
+
+ModelMeta$methods(clear=function(...) {
+    for (field in names(.self$fields__)) {
+        type <- .self$fields__[[field]]
+        if (type == "TEXT") {
+            .self[[field]] <- ""
+        } else if (
+            type == "INTEGER"
+            || type == "FLOAT"
+            || type == "REAL"
+        ) {
+            .self[[field]] <- 0
+        } else if (type == "BOOLEAN") {
+            .self[[field]] <- FALSE
+        } else if (type == "BLOB") {
+            .self[[field]] <- blob::blob(raw())
+        }
+    }
 })
 
 ModelMeta$methods(join_clause=function(...) {
@@ -102,6 +119,13 @@ ModelMeta$methods(as.character=function() {
 })
 
 
+ModelMeta$methods(created=function(){
+    "\
+    "
+    return (.self$id != .self$NOT_CREATED)
+})
+
+
 ModelMeta$methods(all=function(){
     "\
     "
@@ -112,7 +136,11 @@ ModelMeta$methods(all=function(){
 ModelMeta$methods(load=function(id){
     "\
     "
-    return(.self$load_by(id=id))
+    result <- .self$load_by(id=id)
+    if (result$length() == 0) {
+        return (NULL)
+    }
+    return (result$first())
 })
 
 
@@ -160,10 +188,18 @@ ModelMeta$methods(load_by=function(...) {
                         field, .self$table__
                     ))
                 }
+                if (is.list(value)) {
+                    operator <- .self$orm__$OPERATORS$IN
+                } else if (is.vector(value) && length(value) > 1) {
+                    operator <- .self$orm__$OPERATORS$IN
+                    value <- as.list(value)
+                } else {
+                    operator <- .self$orm__$OPERATORS$EQ
+                }
                 where[[length(where)+1]] <- list(
                     field=.self$table_field(field=field),
                     value=value,
-                    operator=.self$orm__$OPERATORS$EQ
+                    operator=operator
                 )
                 previous_is_where <- TRUE
             }
@@ -180,32 +216,14 @@ ModelMeta$methods(load_by=function(...) {
     return (.self$load_from_request__(request))
 })
 
-ModelMeta$methods(load_join=function(...) {
-    join_list <- list(...)
-    map(join_list, function(join) {
-        .self$orm$JoinClause(
-            table=join$table
-        )
-    })
-})
-
 ModelMeta$methods(load_from_request__=function(request) {
     "\
     "
-    result <- (.self$orm__$with_query(request, {
-        context <- .self$orm__$execution_context
-        results <- dbFetch(context$rs)
-        if (dbGetRowCount(context$rs) == 0) {
-            result <- list()
-        } else if (dbGetRowCount(context$rs) > 1) {
-            result <- .self$load_multiple_from_data__(results)
-        } else {
-            result <- .self$load_one_from_data__(results)
-        }
-        ## return
-        result
-    }))
-    return (result)
+    rs <- .self$orm__$get_query(request)
+    if (nrow(rs) == 0) {
+        return (ResultSet())
+    }
+    return (ResultSet(results=.self$load_multiple_from_data__(rs)))
 })
 
 
@@ -231,21 +249,20 @@ ModelMeta$methods(load_one_from_data__=function(row) {
 })
 
 
-ModelMeta$methods(save=function(bulk=FALSE, return_request=FALSE) {
+ModelMeta$methods(save=function(bulk=list(), return_request=FALSE) {
     "\
     "
     ## bulk is not used for the moment ; too complicated, and
     ## perhaps useless in XSeeker:
     ## it saves in a pool the models to save and when the user
     ## decides to save them, they're all saved with only one request
-    if (bulk == FALSE) {
-        if (.self$get_id() == -1) {
+    orm <- .self$orm__
+    if (identical(bulk, list())) {
+        if (!.self$created()) {
             .self$save_added_fk_()
-            field_names <- Filter(
-                function(x){x!="id"},
-                names(.self$fields__)
-            )
-            request <- .self$orm__$create_insert_request(
+            field_names <- as.list(names(.self$fields__))
+            field_names[field_names=="id"] <- NULL
+            request <- orm$create_insert_request(
                 table=.self$table__,
                 fields=field_names,
                 values=map(field_names, function(x).self[[x]])
@@ -256,21 +273,19 @@ ModelMeta$methods(save=function(bulk=FALSE, return_request=FALSE) {
                 request <- ""
             } else {
                 values <- list()
-                fields <- Filter(
-                    function(x){x!="id"},
-                    names(.self$modified__)
-                )
-                for (field in fields) {
+                field_names <- as.list(names(.self$modified__))
+                field_names[field_names=="id"] <- NULL
+                for (field in field_names) {
                     values[[field]] <- .self[[field]]
                 }
-                request <- .self$orm__$create_update_request(
+                request <- orm$create_update_request(
                     table=.self$table__,
                     values=values,
                     where=list(
                         .self$where_clause(
                             field=.self$table_field(field="id"),
                             value=.self$get_id(),
-                            operator=.self$orm__$OPERATORS$EQ
+                            operator=orm$OPERATORS$EQ
                         )
                     )
                 )
@@ -280,22 +295,20 @@ ModelMeta$methods(save=function(bulk=FALSE, return_request=FALSE) {
             new_row <- FALSE
         }
     } else {
-        stop(sprintf(
-            "%s$save(bulk=TRUE) is not implemented yet.", model_name__
-        ))
+        return (.self$bulk_save(bulk))
     }
     if (request != "") {
         get_id <- (
             if (new_row) "SELECT last_insert_rowid() as id"
-            else paste("SELECT", .self$orm__$escape(.self$get_id()), "as id")
+            else sprintf("SELECT %s as id", orm$escape(.self$get_id()))
         )
-        .self$orm__$with_atomic(
+        orm$with_atomic(
             before={
-                dbClearResult(.self$orm__$send_statement(request))
-                .self$orm__$get_query(get_id)
+                orm$clear_result(orm$send_statement(request))
+                orm$get_query(get_id)
             },
             then={
-                context <- .self$orm__$execution_context
+                context <- orm$execution_context
                 .self$set_id(context$rs$id)
                 .self$modified__ <- list()
             }
@@ -306,9 +319,58 @@ ModelMeta$methods(save=function(bulk=FALSE, return_request=FALSE) {
     return (if (return_request) request else .self)
 })
 
+ModelMeta$methods(bulk_save=function(models) {
+    to_insert <- list()
+    self_type <- class(.self)
+
+    field_names <- as.list(names(.self$fields__))
+    field_names[field_names=="id"] <- NULL
+    for (model in models) {
+        if (is.list(model)) {
+            values <- list()
+            for (field in field_names) {
+                # value <- model[[field]]
+                if(is.null(value <- model[[field]])) {
+                    value <- do.call(.self$fields__[[field]], c())
+                }
+                values[[field]] <- value
+            }
+            to_insert[[length(to_insert)+1]] <- values
+        } else if (!is(model, self_type)) {
+            stop(sprintf(
+                "%s: Bulk save only work with similar objects, %s found.",
+                self_type, class(model)
+            ))
+        } else if (model$created()) {
+            model$save()
+        } else {
+            model$save_added_fk_()
+            values <- list()
+            for (field in field_names) {
+                values[[field]] <- .self[[field]]
+            }
+            to_insert[[length(to_insert)+1]] <- values
+            model$id <- model$NOT_RETRIEVED
+        }
+    }
+    if (length(to_insert)) {
+        print("Bukl request created")
+        request <- .self$orm__$create_insert_request(
+            table=.self$table__,
+            fields=field_names,
+            values=to_insert
+        )
+        .self$orm__$clear_result(.self$orm__$send_statement(request))
+    }
+    # stop(sprintf(
+    #     "%s$save(bulk=list(<%s>)) is not implemented yet."
+    #     , model_name__, model_name__
+    # ))
+})
+
 ModelMeta$methods(save_added_fk_=function() {
     for (obj in .self$modified__) {
-        if (is(obj, "ModelMeta") && obj$get_id() == -1) {
+        if (is(obj, "ModelMeta") && !obj$created()) {
             obj$save()
             .self$cache_read__[[obj$table__]] <- NULL
         }
@@ -318,7 +380,7 @@ ModelMeta$methods(save_added_fk_=function() {
 ModelMeta$methods(save_added_many_=function() {
     for (table in names(.self$cache_add__)) {
         for (obj in .self$cache_add__[[table]]) {
-            if (obj$get_id() == -1) {
+            if (!obj$created()) {
                 obj$save()
             }
             .self$create_link_to_(obj)
@@ -372,14 +434,14 @@ ModelMeta$methods(unlink_from_=function(other) {
             )
         )
     )
-    dbClearResult(.self$orm__$send_statement(request))
+    .self$orm__$clear_result(.self$orm__$send_statement(request))
     return (request)
 })
 
 ModelMeta$methods(create_link_to_=function(other) {
     if (
-        (self_id <- .self$get_id()) == -1
-        || (other_id <- other$get_id()) == -1
+        (self_id <- .self$get_id()) == .self$NOT_CREATED
+        || (other_id <- other$get_id()) == .self$NOT_CREATED
     ) {
         stop("Must save objects in database before linking them")
     }
@@ -400,6 +462,6 @@ ModelMeta$methods(create_link_to_=function(other) {
         ),
         values=list(self_id, other_id)
     )
-    dbClearResult(.self$orm__$send_statement(request))
+    .self$orm__$clear_result(.self$orm__$send_statement(request))
     return (request)
 })

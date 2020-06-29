@@ -14,24 +14,18 @@ connection_parameters[[orm$SQLITE]] <- list(
 )
 connection_parameters[[orm$POSTGRESQL]] <- list(
     dbname="dbmodelr_test_db",
-    # host="localhost",
-    # port=5432,
     user="testr",
     password="password"
 )
 
 connection_parameters[[orm$MYSQL]] <- list(
     dbname="dbmodelr_test_db",
-    # host="localhost",
-    # port=5432,
     user="testr",
     password="password"
 )
 
 connection_parameters[[orm$MARIADB]] <- list(
     dbname="dbmodelr_test_db",
-    # host="localhost",
-    # port=5432,
     user="testr",
     password="password"
 )
@@ -71,6 +65,8 @@ if (dbms == orm$SQLITE) {
         testthat::expect_true(orm$disconnect())
         testthat::expect_true(file.exists(DB_PATH))
     })
+} else {
+    next
 }
 
 connected <- tryCatch({
@@ -105,59 +101,82 @@ if (connected) {
     })
 
     tribromophenol <- orm$compound(
-        name='Tribromophenol',
-        common_name='Tribromophenol',
-        formula='C6H3Br3O1',
+        name="Tribromophenol",
+        common_name="Tribromophenol",
+        formula="C6H3Br3O1",
         charge=0,
-        date='2017-09-01',
+        date="2017-09-01",
         mz=329.771356516
     )
     dibromophenol <- orm$compound(
-        name='Dibromophenol',
-        common_name='Dibromophenol',
-        formula='C6H4Br2O1',
+        name="Dibromophenol",
+        common_name="Dibromophenol",
+        formula="C6H4Br2O1",
         charge=0,
-        date='2017-09-01',
+        date="2017-09-01",
         mz=251.86084364800001367
     )
     trichlorophenol <- orm$compound(
-        name='Trichlorophenol',
-        common_name='Trichlorophenol',
-        formula='C6H3Cl3O1',
+        name="Trichlorophenol",
+        common_name="Trichlorophenol",
+        formula="C6H3Cl3O1",
         charge=0,
-        date='2017-09-01',
+        date="2017-09-01",
         mz=195.92494784600000911
     )
     dichlorophenol <- orm$compound(
-        name='Dichlorophenol',
-        common_name='Dichlorophenol',
-        formula='C6H4Cl2O1',
+        name="Dichlorophenol",
+        common_name="Dichlorophenol",
+        formula="C6H4Cl2O1",
         charge=0,
-        date='2017-09-01',
+        date="2017-09-01",
         mz=161.96392016799998714
     )
 
     testthat::test_that("ORM models saving in database", {
         testthat::expect_equal(
             tribromophenol$save(return_request=TRUE),
-            "INSERT INTO compound (name, common_name, formula, charge, date, mz) VALUES ( 'Tribromophenol', 'Tribromophenol', 'C6H3Br3O1', 0, '2017-09-01', 329.771356516 ) "
+            "INSERT INTO compound (name, common_name, formula, charge, date, mz) VALUES ('Tribromophenol', 'Tribromophenol', 'C6H3Br3O1', 0, '2017-09-01', 329.771356516) "
         )
         testthat::expect_equal(
             dibromophenol$save(return_request=TRUE),
-            "INSERT INTO compound (name, common_name, formula, charge, date, mz) VALUES ( 'Dibromophenol', 'Dibromophenol', 'C6H4Br2O1', 0, '2017-09-01', 251.860843648 ) "
+            "INSERT INTO compound (name, common_name, formula, charge, date, mz) VALUES ('Dibromophenol', 'Dibromophenol', 'C6H4Br2O1', 0, '2017-09-01', 251.860843648) "
         )
         testthat::expect_equal(
             trichlorophenol$save(return_request=TRUE),
-            "INSERT INTO compound (name, common_name, formula, charge, date, mz) VALUES ( 'Trichlorophenol', 'Trichlorophenol', 'C6H3Cl3O1', 0, '2017-09-01', 195.924947846 ) "
+            "INSERT INTO compound (name, common_name, formula, charge, date, mz) VALUES ('Trichlorophenol', 'Trichlorophenol', 'C6H3Cl3O1', 0, '2017-09-01', 195.924947846) "
         )
         testthat::expect_equal(
             dichlorophenol$save(return_request=TRUE),
-            "INSERT INTO compound (name, common_name, formula, charge, date, mz) VALUES ( 'Dichlorophenol', 'Dichlorophenol', 'C6H4Cl2O1', 0, '2017-09-01', 161.963920168 ) "
+            "INSERT INTO compound (name, common_name, formula, charge, date, mz) VALUES ('Dichlorophenol', 'Dichlorophenol', 'C6H4Cl2O1', 0, '2017-09-01', 161.963920168) "
         )
     })
 
+    testthat::test_that("ORM result set iteration methods", {
+        rs <- orm$compound()$load_by(date="2017-09-01")
+        testthat::expect_equal(length(rs), 4)
+        testthat::expect_equal(rs$length(), 4)
+        testthat::expect_true(is(as.vector(rs), "vector"))
+        testthat::expect_true((function() {
+            for (x in as.vector(orm$compound()$all())) {
+                if (!is(x, "ModelMeta")) {
+                    return (FALSE)
+                }
+            }
+            return (TRUE)
+        })())
+        testthat::expect_true(all(map(
+            as.vector(orm$compound()$all()),
+            function(x) {
+                is(x, "ModelMeta")
+            }
+        ))[1])
+    })
+
     testthat::test_that("ORM model loading", {
-        loaded_dichlorophenol <- orm$compound()$load_by(name="Dichlorophenol", mz=161.96392016799998714)
+        loaded_dichlorophenol <- orm$compound()$load_by(
+            name="Dichlorophenol", mz=161.96392016799998714
+        )$first()
         testthat::expect_equal(loaded_dichlorophenol$fields__, dichlorophenol$fields__)
         testthat::expect_true(loaded_dichlorophenol == dichlorophenol)
         compound <- orm$compound()
@@ -210,7 +229,7 @@ if (connected) {
         )$save()
     })
 
-    result <- orm$compound()$load_by(name="unsecured_1")
+    result <- orm$compound()$load_by(name="unsecured_1")$first()
 
     testthat::test_that("Unsecured ORM SQL Injections success", {
         testthat::expect_equal(result$get_common_name(), "trichlorophenol")
@@ -222,7 +241,7 @@ if (connected) {
         common_name="'trichlorophenol', 456.789) --",
         mz=123.456
     )$save()
-    result <- orm$compound()$load_by(name="secured_1")
+    result <- orm$compound()$load_by(name="secured_1")$first()
 
     testthat::test_that("Secured ORM SQL Injections prevented", {
         testthat::expect_equal(result$common_name, "'trichlorophenol', 456.789) --")
@@ -263,12 +282,13 @@ if (connected) {
         orm$connect()
 
         ## like this, we'll see the requests generated by the orm
+        requests <- orm$create_database()
         testthat::expect_equal(
-            orm$create_database(),
+            requests[order(do.call(c, requests))],
             list(
-                "CREATE TABLE  person (id INTEGER PRIMARY KEY, name TEXT, family_name TEXT)",
+                "CREATE TABLE  adress (id INTEGER PRIMARY KEY, number INTEGER, street TEXT)",
                 "CREATE TABLE  adress_person (id INTEGER PRIMARY KEY, adress_id INTEGER, person_id INTEGER, FOREIGN KEY (person_id) REFERENCES person (id), FOREIGN KEY (adress_id) REFERENCES adress (id))",
-                "CREATE TABLE  adress (id INTEGER PRIMARY KEY, number INTEGER, street TEXT)"
+                "CREATE TABLE  person (id INTEGER PRIMARY KEY, name TEXT, family_name TEXT)"
             )
         )
         ## the tables has been generated, fks and their restrictions has been
@@ -279,7 +299,7 @@ if (connected) {
         alice <- orm$person(name="Alice", family_name="smith")$save()
 
         ## Alice has been successfully added to and loaded from the database.
-        testthat::expect_true(orm$person()$load_by(name="Alice") == alice)
+        testthat::expect_true(orm$person()$load_by(name="Alice")$first() == alice)
 
         ## The id is 1, because it's the first person to be inserted into the
         ## "person" table.
@@ -298,7 +318,9 @@ if (connected) {
 
         ## prints an empty list()
         ## no adress has been assigned to him for the moment.
-        testthat::expect_equal(bob$get_adress(), list())
+        adress <- bob$get_adress()
+        testthat::expect_false(is.null(adress))
+        testthat::expect_equal(adress$length(), 0)
 
         ## let's give him a home
         bob$add_adress(
@@ -315,7 +337,7 @@ if (connected) {
         ## now Bob is happy because he has an adress
         ## prints: list(<adress id: 1> ...) etc.
         testthat::expect_equal(
-            map(adress <- bob$get_adress(), function(x)x$as.character()),
+            map(as.vector(adress <- bob$get_adress()), function(x)x$as.character()),
             list(paste(
                 "<adress [id: 1]>: ",
                 "[number: 42]",
@@ -334,7 +356,7 @@ if (connected) {
         ## we set a more... usual name. And we save it (the adress).
         )[[1]]$set_street("Second street")$save()
         testthat::expect_equal(
-            map(bob$get_adress(), function(x)x$as.character()),
+            map(as.vector(bob$get_adress()), function(x)x$as.character()),
             list(paste(
                 "<adress [id: 1]>: ",
                 "[number: 42]",
@@ -356,13 +378,13 @@ if (connected) {
         orm$set_connection_parameters(connection_parameters[[dbms]])
 
         orm$with_connection({
-            bob <- orm$person()$load_by(name="bob")
+            bob <- orm$person()$load_by(name="bob")$first()
             bob$add_adress(
                 ## he's has a second residence
                 orm$adress(number=2, street="the squirel's path")
             )$save()
             testthat::expect_equal(
-                map(bob$get_adress(), function(x)x$as.character()),
+                map(as.vector(bob$get_adress()), function(x)x$as.character()),
                 list(paste(
                     "<adress [id: 1]>: ",
                     "[number: 42]",
@@ -381,7 +403,10 @@ if (connected) {
             ## finily he decided to live in his second house, and sold the
             ## first one.
             testthat::expect_equal(
-                map(bob$get_adress(street="Second street"), function(x)x$as.character()),
+                map(
+                    as.vector(bob$get_adress(street="Second street")),
+                    function(x)x$as.character()
+                ),
                 list(paste(
                     "<adress [id: 1]>: ",
                     "[number: 42]",
@@ -390,10 +415,10 @@ if (connected) {
                     sep="\n  "
                 ))
             )
-            bob$remove_adress(bob$get_adress(street="Second street"))
+            bob$remove_adress(bob$get_adress(street="Second street")$first())
             bob$save()
             testthat::expect_equal(
-                map(bob$get_adress(), function(x)x$as.character()),
+                map(as.vector(bob$get_adress()), function(x)x$as.character()),
                 list(paste(
                     "<adress [id: 2]>: ",
                     "[number: 2]",
@@ -410,3 +435,4 @@ if (connected) {
 }
 
 }
+

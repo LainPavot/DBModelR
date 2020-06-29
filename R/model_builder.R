@@ -1,17 +1,27 @@
 
 
 sqlite_field_to_R_type_ <- function(field) {
-    if (identical(field, "INTEGER")) {
+    field <- toupper(field)
+    if (field == "INTEGER") {
         return ("numeric")
-    } else if (identical(field, "TEXT")) {
+    } else if (field == "TRUE_INTEGER") {
+        return ("integer")
+    } else if (field == "TEXT") {
         return ("character")
-    } else if (identical(field, "FLOAT")) {
+    } else if (field == "FLOAT") {
         return ("numeric")
-    } else if (identical(field, "REAL")) {
+    } else if (field == "REAL") {
         return ("numeric")
-    } else if (identical(field, "BLOB")) {
+    } else if (field == "BLOB") {
+        if (!require("blob", quietly=TRUE)) {
+            stop("You need to install the package \"blob\" to uses this type")
+        }
         return ("blob")
     }
+    sopt(sprintf(
+        "Unknown type: %s. Expected %s",
+        field, "INTEGER, TRUE_INTEGER, TEXT, REAL, FLOAT or BLOB"
+    ))
     ## todo: throw error
     return ("unknown")
 }
@@ -24,11 +34,17 @@ sqlite_fields_to_R_types_ <- function(list) {
 }
 
 generate_methods_ <- function(model, class_name, fields) {
-    return (generate_setters_getters_(model, class_name, fields))
+    methods <- generate_setters_getters_(model, class_name, fields)
+    methods$setter_for <- function(field) {
+        if (is.null(.self$fields__[[field]])) {
+            return (NULL)
+        }
+        method_name <- sprintf("get_%s", field)
+    }
+    return (methods)
 }
 
-generate_setters_getters_ <- function(model, class_name, fields) {
-    methods <- list()
+generate_setters_getters_ <- function(model, class_name, fields, methods=list()) {
     for (field in names(fields)) {
         if (any(grepl("^.*_id$", field))) {
             table <- sub("_id$", "", field)
@@ -64,10 +80,20 @@ generate_setters_getters_ <- function(model, class_name, fields) {
 generate_fk_setter_ <- function(class_name, table_name) {
     setter <- function(value) {
         field <- field
+        class_name <- class_name
+        if (!is(value, class_name)) {
+            stop(sprintf(
+                "Bad value for fk field. Expected <%s>, got <%s>.",
+                class_name, class(value)
+            ))
+        }
         .self$modified__[[field]] <- value
+        return (.self)
     }
     field <- sprintf("%s_id", table_name)
-    setter <- inject_local_function_dependencies_(setter, 2, field)
+    setter <- inject_local_function_dependencies_(
+        setter, 2, field, class_name_from_table_name_(table_name)
+    )
     return (setter)
 }
 
@@ -106,10 +132,12 @@ generate_setter_ <- function(class_name, field, type) {
         test <- is.numeric
     } else if (type == "character") {
         test <- is.character
+    } else if (type == "integer") {
+        test <- is.integer
     } else if (type == "blob") {
         test <- function(x)is(x, "blob")
     } else {
-        print(sprintf("Unknown filed type: %s", type))
+        stop(sprintf("Unknown filed type: %s", type))
     }
     err_string <- sprintf(
         "Bad field type for %s$%s.
@@ -124,6 +152,13 @@ generate_setter_ <- function(class_name, field, type) {
             return(.self$field(field, value))
         } else if (!test(value)) {
             stop(sprintf(err_string, class(value), value))
+        }
+        if (is(value, "blob") && length(value) == 0) {
+            warning(paste(
+                "Blobs must contains at least one raw",
+                "vector, like this: `blob::blob(raw())`"
+            ))
+            value <- blob::blob(raw())
         }
         if (.self[[field]] == value) {
             return (.self)
@@ -188,9 +223,6 @@ generate_get_many <- function(schema, other_table) {
                     ...
                 )
             )
-            if (!is.list(result)) {
-                result <- list(result)
-            }
             if (no_cache) {
                 return (result)
             }
@@ -213,8 +245,16 @@ generate_get_many <- function(schema, other_table) {
 generate_add_many <- function(schema, other_table) {
     adder <- function(value) {
         target_class <- target_class
-        if (!is.list(value)) {
+        if (is(value, "ModelMeta")) {
             value <- list(value)
+        } else if (is(value, "ResultSet")) {
+            value <- as.list(value)
+        }
+        if (!is(value, "list")) {
+            stop(sprintf(
+                "Bad type: expected ModelMeta or ResultSet, got %s",
+                class(value)
+            ))
         }
         if (is.null(.self$cache_add__[[value[[1]]$table__]])) {
             .self$cache_add__[[value[[1]]$table__]] <- list()
@@ -241,9 +281,16 @@ generate_add_many <- function(schema, other_table) {
 generate_set_many <- function(schema, other_table) {
     setter <- function(value) {
         target_class <- target_class
-        if (!is.list(value)) {
+        if (is(value, "ModelMeta")) {
             value <- list(value)
-        } 
+        } else if (is(value, "ResultSet")) {
+            value <- as.list(value)
+        } else if (!is(value, "list")) {
+            stop(sprintf(
+                "Bad type: expected ModelMeta or ResultSet, got %s",
+                class(value)
+            ))
+        }
         .self$cache_add__[[value[[1]]$table__]] <- list()
         for (obj in value) {
             if (!is(obj, target_class)) {
@@ -267,9 +314,17 @@ generate_set_many <- function(schema, other_table) {
 generate_remove_many <- function(schema, other_table) {
     remover <- function(value) {
         target_class <- target_class
-        if (!is.list(value)) {
+        if (is(value, "ModelMeta")) {
             value <- list(value)
-        } 
+        } else if (is(value, "ResultSet")) {
+            value <- as.list(value)
+        }
+        if (!is(value, "list")) {
+            stop(sprintf(
+                "Bad type: expected ModelMeta or ResultSet, got %s",
+                class(value)
+            ))
+        }
         if (is.null(.self$cache_remove__[[value[[1]]$table__]])) {
             .self$cache_remove__[[value[[1]]$table__]] <- list()
         }
@@ -333,18 +388,18 @@ model_builder <- function(model, orm, additional_fields=list(), ...) {
         .self$orm__ <- orm
         .self$fields__ <- .self$sql_model__$fields
         params <- list(...)
-        .self$id <- -1
+        .self$id <- .self$NOT_CREATED
         for(field in names(.self$fields__)) {
             if (field != "id") {
                 if (!is.null(params[[field]])) {
                     .self$modified__[[field]] <- .self[[field]]
                     .self[[field]] <- params[[field]]
                 } else {
-                    type <- .self$fields__[[field]]
+                    type <- toupper(.self$fields__[[field]])
                     if (type == "TEXT") {
                         .self[[field]] <- ""
                     } else if (type == "BLOB") {
-                        .self[[field]] <- blob::blob()
+                        .self[[field]] <- blob::blob(raw())
                     } else if (type == "BOOLEAN") {
                         .self[[field]] <- FALSE
                     } else if (

@@ -1,10 +1,10 @@
 Package: DBModelR
 Title: A Model-Database Interface to Make the Database Layer Abstract
 Description: Defines an ORM (Object Relational Mapping) that
-    allow developers to interact with a "SQLite" database transparently,
+    allow developers to interact with a 'SQLite' database transparently,
     through R objects.
     Objects describes the database's schema, can generate the described
-    database, and access it transparently to load and save and update
+    database, and access it transparently to load, save and update
     informations.
     Links between table are created and deleted automatically if
     necessary to prevent database growth and "dead links".
@@ -28,13 +28,15 @@ Suggests:
     RSQLite,
     RPostgres,
     RMySQL,
-    MariaDB,
+    RMariaDB,
     testthat,
     knitr,
+    blob,
     rmarkdown
 VignetteBuilder: knitr
 Collate: 
     'class_definitions.R'
+    'result_set.R'
     'model_builder.R'
     'model_definition.R'
     'model_meta.R'

@@ -1,0 +1,80 @@
+
+#' Returns ModelMeta at the given index.
+#' @param x A ResultSet instance
+#' @param i The index of the ModelMeta
+#' @return The ModelMeta instance of index \code{index}
+setMethod("[[", "ResultSet", function(x, i) {
+    .self <- selectMethod("$", "envRefClass")(x, ".self")
+    return (.self$result_set__[[i]])
+})
+
+#' Returns the number of results.
+#' @param x A ResultSet instance
+#' @return The number of results
+setMethod("length", "ResultSet", function(x) {
+    .self <- selectMethod("$", "envRefClass")(x, ".self")
+    return (.self$length__)
+})
+
+setMethod("as.vector", "ResultSet", function(x) {
+    .self <- selectMethod("$", "envRefClass")(x, ".self")
+    return (as.vector(.self$result_set__))
+})
+
+#' @export
+as.list.ResultSet <- function(x) {
+    .self <- selectMethod("$", "envRefClass")(x, ".self")
+    return (x$result_set__)
+}
+setMethod("as.list", "ResultSet", as.list.ResultSet)
+setMethod("as.list.default", "ResultSet", as.list.ResultSet)
+
+ResultSet$methods(initialize=function(results=NULL) {
+    .self$result_set__ <- (if (is.null(results)) list() else results)
+    .self$length__ <- base::length(.self$result_set__)
+})
+
+ResultSet$methods(length=function() {
+    return (.self$length__)
+})
+
+ResultSet$methods(first=function() {
+    if (.self$length__ == 0) {
+        return (NULL)
+    }
+    return (.self$result_set__[[1]])
+})
+
+ResultSet$methods(last=function() {
+    if (.self$length__ == 0) {
+        return (NULL)
+    }
+    return (.self$result_set__[[.self$length__]])
+})
+
+ResultSet$methods(any=function() {
+    return (.self$length__ != 0)
+})
+
+ResultSet$methods(delete=function() {
+    if (!is.null(first_model <- .self$first())) {
+        orm <- first_model$orm__
+        orm$execute(orm$create_delete_request(
+            table=first_model$table__,
+            where=list(
+                orm$where_clause(
+                    field=first_model$table_field("id"),
+                    operator=orm$OPERATORS$IN,
+                    value=map(.self$result_set__, function(x) x$get_id())
+                )
+            )
+        ))
+    }
+})
+
+ResultSet$methods(fields=function(field) {
+    return (map(
+        .self$result_set__,
+        function(x)x[[field]]
+    ))
+})

@@ -16,14 +16,21 @@ setMethod("$", "ORM", function(x, name) {
     return (model)
 })
 
+ORM$methods(show=function() {
+    return (cat(paste(
+        "ORM",
+        if(.self$is_connected()) paste("Connected using", .self$connection_parameters_)
+        else "Disconnected"
+    )))
+})
+
 ORM$methods(initialize=function(
+    connection_params=list(),
     model_definitions=NULL,
     connect=TRUE,
-    dbms="SQLite",
-    parameters=list()
+    dbms="SQLite"
 ) {
     "
-    to connect to.
     model_definitions: A list of ModelDefinition instances, that defines
     the database schema.
     connect: A boolean telling weither the orm will try to connect to the
@@ -39,7 +46,7 @@ ORM$methods(initialize=function(
     .self$DBMS_PACKAGES[[.self$MARIADB]] <- "RMariaDB"
     .self$DBMS_PACKAGES[[.self$MYSQL]] <- "RMySQL"
     .self$DBMS_METHODS <- list()
-    .self$set_connection_parameters(parameters)
+    .self$set_connection_parameters(connection_params)
     .self$set_dbms(dbms)
     .self$escape_values__must_be_true__ <- TRUE
     if (!is.null(model_definitions)) {
@@ -149,13 +156,12 @@ ORM$methods(set_dbms=function(dbms) {
     dbms_names <- names(.self$DBMS_PACKAGES)
     if (any(grepl(sprintf("^%s$", dbms), dbms_names))) {
         package <- .self$DBMS_PACKAGES[[dbms]]
-        if(package %in% rownames(installed.packages()) == FALSE) {
+        if(!require(package, character.only=TRUE, quietly=TRUE)) {
             stop(sprintf(
                 "You must install %s before you set the dbms to %s.",
                 package, dbms
             ))
         }
-        library(package, character.only=TRUE, quietly=TRUE, verbose=FALSE)
         .self$dbms_env <- as.environment(sprintf("package:%s", package))
         .self$dbms__ <- dbms
     } else {
@@ -677,7 +683,8 @@ ORM$methods(create_update_request=function(
     return (result)
 })
 
-ORM$methods(build_insert_values=function(values=NULL) {
+
+ORM$methods(build_insert_values=function(values=NULL, imbricated=FALSE) {
     "
     Internal method. Do not use.
     Create the `values` part of an insert request.
@@ -691,14 +698,33 @@ ORM$methods(build_insert_values=function(values=NULL) {
             .self$build_insert_values(values)
         }))
     } else {
-        values <- map(values, function(x) {
-            return (.self$escape(
-                if (is(x, "ModelMeta"))x$get_id()
-                else x
-            ))
-        })
+        if (imbricated || !is(values[[1]], "list")) {
+            mapper <- function(x) {
+                if (is(x, "list")) {
+                    stop(sprintf(
+                        "Found a list where values were expected: %s", values
+                    ))
+                }
+                return (.self$escape(
+                    if (is(x, "ModelMeta"))x$get_id()
+                    else x
+                ))
+            }
+        } else {
+            mapper <- function(x) {
+                if (!is(x, "list")) {
+                    stop(sprintf(
+                        "Mixed insert values with lists: %s", values
+                    ))
+                }
+                return (.self$build_insert_values(x, imbricated=TRUE))
+            }
+            values <- map(values, mapper)
+            return (do.call(paste, list(values, collapse=", ")))
+        }
     }
-    return (paste("(", do.call(paste, list(values, collapse=", ")), ")"))
+    values <- map(values, mapper)
+    return (sprintf("(%s)", do.call(paste, list(values, collapse=", "))))
 })
 
 ORM$methods(build_select_fields=function(fields, table=NULL) {
@@ -815,7 +841,7 @@ ORM$methods(fill_template=function(template, ...) {
     "
     replacements <- list(...)
     for (string in names(replacements)) {
-        replacement <- replacements[string]
+        replacement <- replacements[[string]]
         string <- sprintf("{{%s}}", string)
         template <- gsub(string, replacement, template, fixed=TRUE)
     }
@@ -947,7 +973,7 @@ JoinClause$methods(show=function(){
 WhereClause$methods(initialize=function(
     orm=NULL, field="", operator="", value="",
     next_connector=NULL, next_clause=NULL
-){
+) {
     if (is.null(orm)) {
         return (.self)
     }
@@ -966,7 +992,26 @@ WhereClause$methods(initialize=function(
     }
     .self$field <- field
     .self$operator <- operator
-    .self$value <- orm$escape(value)
+    if (is.character(value) || is.numeric(value) || is(value, "blob")) {
+        .self$value <- orm$escape(value)
+    } else {
+        if (.self$operator != orm$OPERATORS$IN) {
+            stop(sprintf(
+                "Cannot use a %s with the operator %s. Use %s",
+                class(value), .self$operator, orm$OPERATORS$IN
+            ))
+        }
+        if (is(value, "ResultSet")) {
+            new_value <- map(as.vector(value), function(model) {model$get_id()})
+        } else {
+            new_value <- value
+        }
+        if (is.list(new_value) || is.vector(new_value)) {
+            .self$value <- sprintf(
+                "(%s)", paste(map(new_value, orm$escape), collapse=", ")
+            )
+        }
+    }
     if (!is.null(next_connector) && !is.null(next_clause)) {
         if (!any(grepl(
             sprintf("^%s$", next_connector),
@@ -990,7 +1035,7 @@ WhereClause$methods(initialize=function(
     }
 })
 
-WhereClause$methods(as.request=function(){
+WhereClause$methods(as.request=function() {
     if (.self$next_connector == "NONE") {
         return (sprintf(
             "%s %s %s",
@@ -1009,7 +1054,7 @@ WhereClause$methods(as.request=function(){
     ))
 })
 
-WhereClause$methods(show=function(){
+WhereClause$methods(show=function() {
     return(print(.self$as.request()))
 })
 
