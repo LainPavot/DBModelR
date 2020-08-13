@@ -29,6 +29,67 @@ as.list.ResultSet <- function(x) {
 setMethod("as.list", "ResultSet", as.list.ResultSet)
 setMethod("as.list.default", "ResultSet", as.list.ResultSet)
 
+#' @export
+as.matrix.ResultSet <- function(x, load_one_to_one=NULL) {
+    .self <- selectMethod("$", "envRefClass")(x, ".self")
+    if (is.null(first <- .self$first())) {
+        return (NA)
+    }
+    orm <- first$orm__
+    field_names <- names(first$fields__)
+    if (!is.null(load_one_to_one)) {
+        models <- orm$model_definitions_
+        for (table in load_one_to_one) {
+            sub_fields <- names(models[[table]]$fields)
+            field_names <- c(
+                field_names,
+                map(sub_fields, function(field) {
+                    return (sprintf("%s_%s", table, field))
+                })
+            )
+        }
+    }
+    result_matrix <- matrix(
+        nrow=.self$length(),
+        ncol=length(field_names),
+        dimnames=list(list(), field_names)
+    )
+    i <- 1
+    for (result in as.vector(.self)) {
+        for (field_name in names(first$fields__)) {
+            result_matrix[i, field_name] <- result[[field_name]]
+        }
+        if (!is.null(load_one_to_one)) {
+            for (table in load_one_to_one) {
+                if (any(grepl(sprintf("^%s$", table), first$sql_model__$one))) {
+                    foreign_object <- orm$model_objects_[[table]]()$load(
+                        result[[sprintf("%s_id", table)]]
+                    )
+                } else {
+                    args <- list()
+                    args[[sprintf("%s_id", first$table__)]] <- result$get_id()
+                    foreign_object_rs <- do.call(
+                        orm$model_objects_[[table]]()$load_by, args
+                    )
+                    if (length(foreign_object_rs) != 1) {
+                        next
+                    }
+                    foreign_object <- foreign_object_rs$first()
+                }
+                for (field_name in names(models[[table]]$fields)) {
+                    result_matrix[
+                        i, sprintf("%s_%s", table, field_name)
+                    ] <- foreign_object[[field_name]]
+                }
+            }
+        }
+        i <- i + 1
+    }
+    return (result_matrix)
+}
+setMethod("as.matrix", "ResultSet", as.matrix.ResultSet)
+setMethod("as.matrix.default", "ResultSet", as.matrix.ResultSet)
+
 ResultSet$methods(initialize=function(results=NULL) {
     .self$result_set__ <- (if (is.null(results)) list() else results)
     .self$length__ <- base::length(.self$result_set__)
