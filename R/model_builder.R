@@ -52,11 +52,13 @@ generate_setters_getters_ <- function(model, class_name, fields, methods=list())
                 getter <- generate_fk_getter_(table, field)
                 setter <- generate_fk_setter_(class_name, table)
                 field <- table
+                methods[[sprintf("get_%s", field)]] <- getter
+                methods[[sprintf("set_%s", field)]] <- setter
+                next
             }
-        } else {
-            getter <- generate_getter_(field)
-            setter <- generate_setter_(class_name, field, fields[[field]])
         }
+        getter <- generate_getter_(field)
+        setter <- generate_setter_(class_name, field, fields[[field]])
         methods[[sprintf("get_%s", field)]] <- getter
         methods[[sprintf("set_%s", field)]] <- setter
     }
@@ -87,7 +89,19 @@ generate_fk_setter_ <- function(class_name, table_name) {
                 class_name, class(value)
             ))
         }
-        .self$modified__[[field]] <- value
+        if (is.null(.self$modified__[[field]])) {
+            ## if not modified yet, add a "modified" flag for this field
+            if (.self$loaded__) {
+                .self$modified__[[field]] <- .self[[field]]
+            } else {
+                .self$modified__[[field]] <- value
+            }
+        } else if (.self$modified__[[field]] == value) {
+            ## if already modified and back to ariginal value,
+            ## remove the "modified" flag for this field
+            .self$modified__[[field]] <- NULL
+        }
+        .self[[field]] <- value$get_id()
         return (.self)
     }
     field <- sprintf("%s_id", table_name)
