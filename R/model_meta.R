@@ -24,6 +24,71 @@ setMethod("==", signature("ModelMeta", "ModelMeta"), function(e1, e2) {
 })
 
 
+#' @export
+as.matrix.ModelMeta <- function(x, load_one_to_one=NULL) {
+    .self <- selectMethod("$", "envRefClass")(x, ".self")
+    orm <- .self$orm__
+    field_names <- names(.self$fields__)
+    if (!is.null(load_one_to_one)) {
+        models <- orm$model_definitions_
+        for (table in load_one_to_one) {
+            sub_fields <- names(models[[table]]$fields)
+            field_names <- c(
+                field_names,
+                map(sub_fields, function(field) {
+                    return (sprintf("%s_%s", table, field))
+                })
+            )
+        }
+    }
+    return (.self$as_matrix_internal(
+        field_names, load_one_to_one, models, orm
+    ))
+}
+setMethod("as.matrix", "ModelMeta", as.matrix.ModelMeta)
+setMethod("as.matrix.default", "ModelMeta", as.matrix.ModelMeta)
+
+
+
+ModelMeta$methods(as_matrix_internal=function(field_names, load_one_to_one, models, orm, result_matrix=NULL, index=1) {
+    if (is.null(result_matrix)) {
+        result_matrix <- matrix(
+            nrow=1,
+            ncol=length(field_names),
+            dimnames=list(list(1), field_names)
+        )
+    }
+    print("result_matrix: ")
+    print(result_matrix)
+    for (field_name in names(.self$fields__)) {
+        result_matrix[index, field_name] <- .self[[field_name]]
+    }
+    if (!is.null(load_one_to_one)) {
+        for (table in load_one_to_one) {
+            if (any(grepl(sprintf("^%s$", table), .self$sql_model__$one))) {
+                foreign_object <- orm$model_objects_[[table]]()$load(
+                    .self[[sprintf("%s_id", table)]]
+                )
+            } else {
+                args <- list()
+                args[[sprintf("%s_id", .self$table__)]] <- .self$get_id()
+                foreign_object_rs <- do.call(
+                    orm$model_objects_[[table]]()$load_by, args
+                )
+                if (length(foreign_object_rs) != 1) {
+                    next
+                }
+                foreign_object <- foreign_object_rs$first()
+            }
+            for (field_name in names(models[[table]]$fields)) {
+                result_matrix[
+                    index, sprintf("%s_%s", table, field_name)
+                ] <- foreign_object[[field_name]]
+            }
+        }
+    }
+    return (result_matrix)
+})
 ModelMeta$methods(initialize=function(...) {
     "\
     "

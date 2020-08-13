@@ -56,33 +56,11 @@ as.matrix.ResultSet <- function(x, load_one_to_one=NULL) {
     )
     i <- 1
     for (result in as.vector(.self)) {
-        for (field_name in names(first$fields__)) {
-            result_matrix[i, field_name] <- result[[field_name]]
-        }
-        if (!is.null(load_one_to_one)) {
-            for (table in load_one_to_one) {
-                if (any(grepl(sprintf("^%s$", table), first$sql_model__$one))) {
-                    foreign_object <- orm$model_objects_[[table]]()$load(
-                        result[[sprintf("%s_id", table)]]
-                    )
-                } else {
-                    args <- list()
-                    args[[sprintf("%s_id", first$table__)]] <- result$get_id()
-                    foreign_object_rs <- do.call(
-                        orm$model_objects_[[table]]()$load_by, args
-                    )
-                    if (length(foreign_object_rs) != 1) {
-                        next
-                    }
-                    foreign_object <- foreign_object_rs$first()
-                }
-                for (field_name in names(models[[table]]$fields)) {
-                    result_matrix[
-                        i, sprintf("%s_%s", table, field_name)
-                    ] <- foreign_object[[field_name]]
-                }
-            }
-        }
+        result_matrix <- result$as_matrix_internal(
+            field_names, load_one_to_one, models, orm,
+            result_matrix=result_matrix,
+            index=i
+        )
         i <- i + 1
     }
     return (result_matrix)
