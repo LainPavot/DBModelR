@@ -530,7 +530,7 @@ ORM$methods(create_table_without_fk_request=function(
     "
     fields <- build_fields_declaration(schema)
     if_no_exists <- c(.self$IF_NO_EXISTS, "")[[no_exists+1]]
-    return (fill_template(
+    return (.self$fill_template(
         CREATE_TABLE_TEMPLATE,
         table=schema$table,
         fields=fields,
@@ -559,7 +559,7 @@ ORM$methods(create_linkage_table_request=function(
         .self$build_fk_constraint(schema$table),
         sep=", "
     )
-    return (fill_template(
+    return (.self$fill_template(
         CREATE_LINKAGE_TABLE_TEMPLATE,
         table=paste(schema$table, other$table, sep="_"),
         foreign_keys=fields,
@@ -578,7 +578,7 @@ ORM$methods(create_table_with_fks_request=function(schema, no_exists=TRUE) {
     ), collapse=", ")
     fields <- build_fields_declaration(schema)
     if_no_exists <- c(.self$IF_NO_EXISTS, "")[[no_exists+1]]
-    return (fill_template(
+    return (.self$fill_template(
         .self$CREATE_TABLE_TEMPLATE,
         table=schema$table,
         fields=sprintf("%s, %s", fields, fk_constraints),
@@ -604,7 +604,7 @@ ORM$methods(create_select_request=function(
     } else {
         from_table <- table
     }
-    result <- (fill_template(
+    result <- (.self$fill_template(
         .self$SELECT_WHERE_TEMPLATE,
         table=from_table,
         fields=.self$build_select_fields(fields, table=table),
@@ -622,7 +622,7 @@ ORM$methods(create_delete_request=function(table="",  where=NULL) {
     can have a `where` clause.
     May disapear or change quickly. Don't rely on it.
     "
-    result <- (fill_template(
+    result <- (.self$fill_template(
         .self$DELETE_WHERE_TEMPLATE,
         table=table,
         where_clause=.self$build_where_clause(where)
@@ -644,7 +644,7 @@ ORM$methods(create_insert_request=function(
     } else {
         fields <- sprintf("(%s)", paste(fields, collapse=", "))
     }
-    result <- (fill_template(
+    result <- (.self$fill_template(
         .self$INSERT_WHERE_TEMPLATE,
         table=table,
         fields=fields,
@@ -674,7 +674,7 @@ ORM$methods(create_update_request=function(
             else values[[x]]
         ))
     }), collapse=", ")
-    result <- (fill_template(
+    result <- (.self$fill_template(
         .self$UPDATE_WHERE_TEMPLATE,
         table=table,
         update_values=update_values,
@@ -875,7 +875,7 @@ ORM$methods(build_fk_constraint=function(reference, foreign_field="id") {
     Create the `fk restrictions` part of a create table request.
     May disapear or change quickly. Don't rely on it.
     "
-    return (fill_template(
+    return (.self$fill_template(
         .self$FK_CONSTRAINT_TEMPLATE,
         fk_name=sprintf("%s_id", reference),
         table=reference,

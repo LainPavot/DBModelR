@@ -117,3 +117,4 @@ ResultSet$methods(fields=function(field) {
         function(x)x[[field]]
     ))
 })
+
