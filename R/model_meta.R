@@ -260,8 +260,8 @@ ModelMeta$methods(create_where_clause=function(field, value) {
     if (is(value, "WhereClause")) {
         return (value)
     }
-    if (is(value, "expression")) {
-         return (.self$unparse_where_expression(field, expression(value)))
+    if (is(value, "expression") || is(value, "call")) {
+         return (.self$unparse_where_expression(field, value))
     }
     if (is(value, "ModelMeta")) {
         if (id <- value$get_id() == -1) {
@@ -301,6 +301,9 @@ ModelMeta$methods(create_where_clause_from_raw_value=function(field, value, oper
 })
 
 ModelMeta$methods(unparse_where_expression=function(field, value) {
+    if (is(value, "call")) {
+        value <- as.expression(value)
+    }
     exprstring <- value[[1]]
     operator <- deparse(exprstring[[1]])
     if (operator == "!") {
