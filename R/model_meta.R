@@ -224,51 +224,26 @@ ModelMeta$methods(load_by=function(...) {
         value <- fields[[i]]
         if (is(value, "JoinClause")) {
             join[[length(join)+1]] <- value
-            previous_is_where <- FALSE
-        } else if (!is.null(field) && field == "add_from") {
-            add_from[[length(add_from)+1]] <- value
-        } else if (!is.null(field) && field == "distinct") {
-            distinct <- value
-        } else {
-            if (previous_is_where) {
-                where[[length(where)+1]] <- .self$orm__$LOGICAL_CONNECTORS$AND
-            }
-            if (is(value, "WhereClause")) {
-                where[[length(where)+1]] <- value
-                previous_is_where <- TRUE
-            } else {
-                if (is(value, "ModelMeta")) {
-                    class_name <- class(value)
-                    value <- value$get_id()
-                    if (value == -1) {
-                        stop(sprintf(paste0(
-                            "The %s has never been saved to the ",
-                            "database, and so has no id. You must ",
-                            "save the it before."
-                        )), class_name)
-                    }
-                } else if (is.null(.self$fields__[[field]])) {
-                    stop(sprintf(
-                        "Field <%s> does not exists for table <%s>",
-                        field, .self$table__
-                    ))
-                }
-                if (is.list(value)) {
-                    operator <- .self$orm__$OPERATORS$IN
-                } else if (is.vector(value) && length(value) > 1) {
-                    operator <- .self$orm__$OPERATORS$IN
-                    value <- as.list(value)
-                } else {
-                    operator <- .self$orm__$OPERATORS$EQ
-                }
-                where[[length(where)+1]] <- list(
-                    field=.self$table_field(field=field),
-                    value=value,
-                    operator=operator
-                )
-                previous_is_where <- TRUE
-            }
+            next
         }
+        if (!is.null(field) && field == "add_from") {
+            add_from[[length(add_from)+1]] <- value
+            next
+        }
+        if (!is.null(field) && field == "distinct") {
+            distinct <- value
+            next
+        }
+        if (previous_is_where) {
+            where[[length(where)+1]] <- .self$orm__$LOGICAL_CONNECTORS$AND
+        }
+        if (is(value, "expression")) {
+            where_clause <- .self$unparse_where_expression(field, value)
+        } else {
+            where_clause <- .self$create_where_clause(field, value)
+        }
+        where[[length(where)+1]] <- where_clause
+        previous_is_where <- TRUE
     }
     request <- .self$orm__$create_select_request(
         distinct=distinct,
@@ -279,6 +254,72 @@ ModelMeta$methods(load_by=function(...) {
         additionnal_froms=add_from
     )
     return (.self$load_from_request__(request))
+})
+
+ModelMeta$methods(create_where_clause=function(field, value) {
+    if (is(value, "WhereClause")) {
+        return (value)
+    }
+    if (is(value, "expression")) {
+         return (.self$unparse_where_expression(field, expression(value)))
+    }
+    if (is(value, "ModelMeta")) {
+        if (id <- value$get_id() == -1) {
+            stop(sprintf(paste0(
+                "The %s has never been saved to the ",
+                "database, and so has no id. You must ",
+                "save the it before."
+            )), class(value))
+        }
+        value <- id
+    }
+    return (.self$create_where_clause_from_raw_value(field, value))
+})
+
+ModelMeta$methods(create_where_clause_from_raw_value=function(field, value, operator=NULL) {
+    if (is.null(.self$fields__[[field]])) {
+        stop(sprintf(
+            "Field <%s> does not exists for table <%s>",
+            field, .self$table__
+        ))
+    }
+    if (identical(operator, NULL)) {
+        if (is.list(value)) {
+            operator <- .self$orm__$OPERATORS$IN
+        } else if (is.vector(value) && length(value) > 1) {
+            operator <- .self$orm__$OPERATORS$IN
+            value <- as.list(value)
+        } else {
+            operator <- .self$orm__$OPERATORS$EQ
+        }
+    }
+    return (list(
+        field=.self$table_field(field=field),
+        value=value,
+        operator=operator
+    ))
+})
+
+ModelMeta$methods(unparse_where_expression=function(field, value) {
+    exprstring <- value[[1]]
+    operator <- deparse(exprstring[[1]])
+    if (operator == "!") {
+        value <- exprstring[[2]]
+        operator <- .self$orm__$OPERATORS$NE
+    } else if (operator == "~") {
+        value <- exprstring[[2]]
+        operator <- .self$orm__$OPERATORS$LIKE
+    } else {
+        operator <- paste0(operator, deparse(exprstring[[2]]))
+        if (!any(grepl(operator, .self$orm__$OPERATORS))) {
+            stop(sprintf("Unknown operator: %s", operator))
+        }
+        value <- exprstring[[3]]
+    }
+    print(sprintf("expr: %s %s %s", field, operator, value))
+    return (.self$create_where_clause_from_raw_value(
+        field, value, operator=operator
+    ))
 })
 
 ModelMeta$methods(load_from_request__=function(request) {

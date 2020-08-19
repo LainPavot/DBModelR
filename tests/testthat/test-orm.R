@@ -181,6 +181,19 @@ if (connected) {
         ))[1])
     })
 
+
+    testthat::test_that("ORM comparison methods", {
+        rs <- orm$compound()$load_by(name=expression(!"Tribromophenol"))
+        testthat::expect_equal(rs[[1]]$name, "Dibromophenol")
+        testthat::expect_equal(rs[[2]]$name, "Trichlorophenol")
+        testthat::expect_equal(rs[[3]]$name, "Dichlorophenol")
+        testthat::expect_equal(length(rs), 3)
+        rs <- orm$compound()$load_by(name=expression(~"%bromo%"))
+        testthat::expect_equal(rs[[1]]$name, "Tribromophenol")
+        testthat::expect_equal(rs[[2]]$name, "Dibromophenol")
+        testthat::expect_equal(length(rs), 2)
+    })
+
     testthat::test_that("ORM model loading", {
         loaded_dichlorophenol <- orm$compound()$load_by(
             name="Dichlorophenol", mz=161.96392016799998714

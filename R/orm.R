@@ -284,7 +284,6 @@ ORM$methods(set_tag=function(
         )
         .self$execute(request)
     }
-    print(request)
     if (.self$has_a_tag(tag_name, tag_table_name)) {
         template <- "UPDATE %s SET %s=%s"
     } else {
@@ -296,7 +295,6 @@ ORM$methods(set_tag=function(
         .self$escape(tag_name),
         .self$escape(tag)
     ))
-    print(query)
 })
 
 ORM$methods(has_a_tag=function(tag_name, tag_table_name) {
@@ -308,18 +306,22 @@ ORM$methods(get_tag=function(
     tag_table_name="XSeeker_tagging_table",
     empty=character(1)
 ) {
+    if (
+        !.self$table_exists(tag_table_name)
+        || !.self$table_has_field(tag_table_name, tag_name)
+    ) {
+        return (empty)
+    }
     query <- sprintf(
         "SELECT %s.%s from %s LIMIT 1",
         .self$escape(tag_table_name),
         .self$escape(tag_name),
         .self$escape(tag_table_name)
     )
-    print(query)
     result <- .self$get_query(query)
     if (nrow(result) == 0) {
         return (empty)
     }
-    print(result)
     return (result[1, tag_name])
 })
 
@@ -341,7 +343,7 @@ ORM$methods(table_exists=function(table_name) {
 ORM$methods(table_has_field=function(table_name, field_name) {
     return (
         field_name %in% colnames(.self$get_query(
-            sprintf("SELECT * FROM %s LINMIT 1", .self$escape(table_name))
+            sprintf("SELECT * FROM %s LIMIT 1", .self$escape(table_name))
         ))
     )
 })
