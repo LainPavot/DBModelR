@@ -215,6 +215,7 @@ ORM$methods(disconnect=function(remove=FALSE) {
     }
     return (!.self$is_connected())
 })
+
 ORM$methods(clear_result=function(rs) {
     "
     Calls .self$dbms_env[['dbClearResult']] on the given rs.
@@ -259,6 +260,90 @@ ORM$methods(escape=function(input) {
         return (.self$dbms_env[["dbQuoteLiteral"]](.self$connection_, input))
     }
     return (input)
+})
+
+ORM$methods(set_tag=function(
+    tag,
+    tag_name="tag",
+    tag_table_name="tagging_table"
+) {
+    if (!.self$table_exists(tag_table_name)) {
+        fields <- list("TEXT")
+        names(fields) <- list(tag_name)
+        request <- .self$create_table_without_fk_request(
+            DBModelR::ModelDefinition(
+                table=tag_table_name,
+                fields=fields
+            )
+        )
+        .self$execute(request)
+    } else if(!.self$table_has_field(tag_table_name, tag_name)) {
+        request <- sprintf(
+            "ALTER TABLE %s ADD COLUMD %s TEXT",
+            .self$escape(tag_table_name), .self$escape(tag_name)
+        )
+        .self$execute(request)
+    }
+    print(request)
+    if (.self$has_a_tag(tag_name, tag_table_name)) {
+        template <- "UPDATE %s SET %s=%s"
+    } else {
+        template <- "INSERT INTO %s (%s) VALUES (%s)"
+    }
+    .self$execute(query <- sprintf(
+        template,
+        .self$escape(tag_table_name),
+        .self$escape(tag_name),
+        .self$escape(tag)
+    ))
+    print(query)
+})
+
+ORM$methods(has_a_tag=function(tag_name, tag_table_name) {
+    return (!identical(.self$get_tag(tag_name, tag_table_name=tag_table_name, empty=NULL), NULL))
+})
+
+ORM$methods(get_tag=function(
+    tag_name,
+    tag_table_name="XSeeker_tagging_table",
+    empty=character(1)
+) {
+    query <- sprintf(
+        "SELECT %s.%s from %s LIMIT 1",
+        .self$escape(tag_table_name),
+        .self$escape(tag_name),
+        .self$escape(tag_table_name)
+    )
+    print(query)
+    result <- .self$get_query(query)
+    if (nrow(result) == 0) {
+        return (empty)
+    }
+    print(result)
+    return (result[1, tag_name])
+})
+
+ORM$methods(table_exists=function(table_name) {
+    query <- sprintf("
+        SELECT
+            name
+        FROM
+            sqlite_master
+        WHERE
+            type='table'
+            AND name=%s
+        ",
+        .self$escape(table_name)
+    )
+    return (nrow(.self$get_query(query)) != 0)
+})
+
+ORM$methods(table_has_field=function(table_name, field_name) {
+    return (
+        field_name %in% colnames(.self$get_query(
+            sprintf("SELECT * FROM %s LINMIT 1", .self$escape(table_name))
+        ))
+    )
 })
 
 ORM$methods(operator_clause=function(...) {
@@ -528,7 +613,7 @@ ORM$methods(create_table_without_fk_request=function(
     Create the request string for the given model (mustn't have fks).
     May disapear or change quickly. Don't rely on it.
     "
-    fields <- build_fields_declaration(schema)
+    fields <- .self$build_fields_declaration(schema)
     if_no_exists <- c(.self$IF_NO_EXISTS, "")[[no_exists+1]]
     return (.self$fill_template(
         CREATE_TABLE_TEMPLATE,
@@ -700,9 +785,9 @@ ORM$methods(build_insert_values=function(values=NULL, imbricated=FALSE) {
     } else {
         if (imbricated || !is(values[[1]], "list")) {
             mapper <- function(x) {
-                if (is(x, "list")) {
+                if (is(x, "list") && !is(x, "blob")) {
                     stop(sprintf(
-                        "Found a list where values were expected: %s", values
+                        "Found a list where values were expected: %s", x
                     ))
                 }
                 return (.self$escape(
@@ -742,7 +827,7 @@ ORM$methods(build_select_fields=function(fields, table=NULL) {
                 if (is(x, "TableField")) {
                     return (x$as.request())
                 } else {
-                    return (sprintf("%s.%s", table, x))
+                    return (x)
                 }
             }), collapse=", ")))
     } else {

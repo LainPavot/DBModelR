@@ -85,6 +85,14 @@ if (connected) {
         orm$execute("DROP TABLE if exists adduct,cluster,cluster_feature,compound,feature,instrument,instrument_config,sample,software")
     }
 
+
+    orm$set_tag("1.2.3", tag_name="version", tag_table_name="database_version")
+    testthat::test_that("ORM database tagging", {
+
+        testthat::expect_equal(orm$get_tag("version", tag_table_name="database_version"), "1.2.3")
+
+    })
+
     requests <- do.call(c, purrr::map(orm$create_database(), as.vector))
     testthat::test_that("ORM schema generation", {
         testthat::expect_equal(requests[order(requests)], c(
