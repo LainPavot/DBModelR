@@ -313,21 +313,31 @@ ModelMeta$methods(unparse_where_expression=function(field, value) {
         value <- as.expression(value)
     }
     exprstring <- value[[1]]
-    operator <- deparse(exprstring[[1]])
-    if (operator == "!") {
-        value <- exprstring[[2]]
-        operator <- .self$orm__$OPERATORS$NE
-    } else if (operator == "~") {
-        value <- exprstring[[2]]
-        operator <- .self$orm__$OPERATORS$LIKE
-    } else {
-        operator <- paste0(operator, deparse(exprstring[[2]]))
-        if (operator == "!~") {
-            operator <- .self$orm__$OPERATORS$NLIKE
-        } else if (!any(grepl(operator, .self$orm__$OPERATORS))) {
-            stop(sprintf("Unknown operator: %s", operator))
+    first <- deparse(exprstring[[1]])
+    if (length(exprstring) == 2) {
+        if (first == "!") {
+            if (length(exprstring[[2]]) == 2 && deparse(exprstring[[2]][[1]]) == "~") {
+                operator <- .self$orm__$OPERATORS$NLIKE
+                value <- exprstring[[2]][[2]]
+            } else {
+                operator <- .self$orm__$OPERATORS$NE
+                value <- exprstring[[2]]
+            }
+        } else if (first == "~") {
+            operator <- .self$orm__$OPERATORS$LIKE
+            value <- exprstring[[2]]
+        } else {
+            stop(sprintf("Bad operator: %s", first))
+        }
+    } else if (length(exprstring) == 3) {
+        if (first == "|") {
+            operator <- gsub("'", "", gsub("\"", "", exprstring[[2]]))
+        } else {
+            stop(sprintf("Bad operator: %s", first))
         }
         value <- exprstring[[3]]
+    } else {
+        stop("Malformed operator: too many arguments (2 or 3 expected): %s", exprstring)
     }
     if (is(value, "call")) {
         value <- eval(value)

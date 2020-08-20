@@ -182,21 +182,74 @@ if (connected) {
     })
 
 
-    testthat::test_that("ORM comparison methods", {
+    testthat::test_that("ORM 'LIKE' selector", {
+        rs <- orm$compound()$load_by(name=quote(~"%bromo%"))
+        testthat::expect_equal(rs[[1]]$name, "Tribromophenol")
+        testthat::expect_equal(rs[[2]]$name, "Dibromophenol")
+        testthat::expect_equal(length(rs), 2)
+    })
+
+    testthat::test_that("ORM 'NOT LIKE' selector", {
+        rs <- orm$compound()$load_by(name=quote(!~"%bromo%"))
+        testthat::expect_equal(rs[[1]]$name, "Trichlorophenol")
+        testthat::expect_equal(rs[[2]]$name, "Dichlorophenol")
+        testthat::expect_equal(length(rs), 2)
+    })
+
+    testthat::test_that("ORM 'NOT' selector", {
         rs <- orm$compound()$load_by(name=expression(!"Tribromophenol"))
         testthat::expect_equal(rs[[1]]$name, "Dibromophenol")
         testthat::expect_equal(rs[[2]]$name, "Trichlorophenol")
         testthat::expect_equal(rs[[3]]$name, "Dichlorophenol")
         testthat::expect_equal(length(rs), 3)
-        rs <- orm$compound()$load_by(name=quote(~"%bromo%"))
+        rs <- orm$compound()$load_by(mz=quote(!161.963920168))
         testthat::expect_equal(rs[[1]]$name, "Tribromophenol")
         testthat::expect_equal(rs[[2]]$name, "Dibromophenol")
-        testthat::expect_equal(length(rs), 2)
+        testthat::expect_equal(rs[[3]]$name, "Trichlorophenol")
+        testthat::expect_equal(length(rs), 3)
+    })
+
+    testthat::test_that("ORM 'NOT IN' selector", {
         rs <- orm$compound()$load_by(name=quote(!list("Dibromophenol", "Trichlorophenol")))
         testthat::expect_equal(rs[[1]]$name, "Tribromophenol")
         testthat::expect_equal(rs[[2]]$name, "Dichlorophenol")
         testthat::expect_equal(length(rs), 2)
+        name_list <- list("Dibromophenol", "Trichlorophenol")
+        rs <- orm$compound()$load_by(name=substitute(!names, list(names=name_list)))
+        testthat::expect_equal(rs[[1]]$name, "Tribromophenol")
+        testthat::expect_equal(rs[[2]]$name, "Dichlorophenol")
+        testthat::expect_equal(length(rs), 2)
     })
+
+    testthat::test_that("ORM 'LT' selector", {
+        rs <- orm$compound()$load_by(mz=quote("<"|251))
+        testthat::expect_equal(rs[[1]]$name, "Trichlorophenol")
+        testthat::expect_equal(rs[[2]]$name, "Dichlorophenol")
+        testthat::expect_equal(length(rs), 2)
+    })
+
+    testthat::test_that("ORM 'GT' selector", {
+        rs <- orm$compound()$load_by(mz=quote(">"|251))
+        testthat::expect_equal(rs[[1]]$name, "Tribromophenol")
+        testthat::expect_equal(rs[[2]]$name, "Dibromophenol")
+        testthat::expect_equal(length(rs), 2)
+    })
+
+    testthat::test_that("ORM 'LE' selector", {
+        rs <- orm$compound()$load_by(mz=quote("<="|251.860843648))
+        testthat::expect_equal(rs[[1]]$name, "Dibromophenol")
+        testthat::expect_equal(rs[[2]]$name, "Trichlorophenol")
+        testthat::expect_equal(rs[[3]]$name, "Dichlorophenol")
+        testthat::expect_equal(length(rs), 3)
+    })
+
+    testthat::test_that("ORM 'GE' selector", {
+        rs <- orm$compound()$load_by(mz=quote(">="|251.860843648))
+        testthat::expect_equal(rs[[1]]$name, "Tribromophenol")
+        testthat::expect_equal(rs[[2]]$name, "Dibromophenol")
+        testthat::expect_equal(length(rs), 2)
+    })
+
 
     testthat::test_that("ORM model loading", {
         loaded_dichlorophenol <- orm$compound()$load_by(
