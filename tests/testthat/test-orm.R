@@ -192,6 +192,10 @@ if (connected) {
         testthat::expect_equal(rs[[1]]$name, "Tribromophenol")
         testthat::expect_equal(rs[[2]]$name, "Dibromophenol")
         testthat::expect_equal(length(rs), 2)
+        rs <- orm$compound()$load_by(name=quote(!list("Dibromophenol", "Trichlorophenol")))
+        testthat::expect_equal(rs[[1]]$name, "Tribromophenol")
+        testthat::expect_equal(rs[[2]]$name, "Dichlorophenol")
+        testthat::expect_equal(length(rs), 2)
     })
 
     testthat::test_that("ORM model loading", {
@@ -213,6 +217,18 @@ if (connected) {
                     value="Trichlorophenol"
                 )
             ), orm$where_clause(
+                field=compound$table_field(field="mz"),
+                operator=orm$OPERATORS$GE,
+                value=150
+            )
+        )
+        testthat::expect_true(
+            compounds[[1]] == trichlorophenol &&
+            compounds[[2]] == dichlorophenol
+        )
+        compounds <- compound$load_by(
+            name=list("Dichlorophenol", "Trichlorophenol"),
+            orm$where_clause(
                 field=compound$table_field(field="mz"),
                 operator=orm$OPERATORS$GE,
                 value=150

@@ -292,6 +292,14 @@ ModelMeta$methods(create_where_clause_from_raw_value=function(field, value, oper
         } else {
             operator <- .self$orm__$OPERATORS$EQ
         }
+    } else {
+        if (is.list(value)) {
+            if (operator == .self$orm__$OPERATORS$NE) {
+                operator <- .self$orm__$OPERATORS$NIN
+            } else if (operator == .self$orm__$OPERATORS$LIKE) {
+                stop("Cannot use operator LIKE with a list of values")
+            }
+        }
     }
     return (list(
         field=.self$table_field(field=field),
@@ -314,12 +322,16 @@ ModelMeta$methods(unparse_where_expression=function(field, value) {
         operator <- .self$orm__$OPERATORS$LIKE
     } else {
         operator <- paste0(operator, deparse(exprstring[[2]]))
-        if (!any(grepl(operator, .self$orm__$OPERATORS))) {
+        if (operator == "!~") {
+            operator <- .self$orm__$OPERATORS$NLIKE
+        } else if (!any(grepl(operator, .self$orm__$OPERATORS))) {
             stop(sprintf("Unknown operator: %s", operator))
         }
         value <- exprstring[[3]]
     }
-    print(sprintf("expr: %s %s %s", field, operator, value))
+    if (is(value, "call")) {
+        value <- eval(value)
+    }
     return (.self$create_where_clause_from_raw_value(
         field, value, operator=operator
     ))

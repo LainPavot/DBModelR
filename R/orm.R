@@ -64,7 +64,8 @@ ORM$methods(initialize=function(
         GE=">=", LE="<=",
         GT=">",  LT="<",
         EQ="==", NE="!=",
-        IN="IN", LIKE="LIKE"
+        IN="IN", NIN="NOT IN",
+        LIKE="LIKE", NLIKE="NOT LIKE"
     )
     .self$LOGICAL_CONNECTORS <- list(
         AND="AND", OR="OR"
@@ -889,28 +890,40 @@ ORM$methods(build_where_clause=function(where=NULL, sub=FALSE) {
             }
             previous.is.clause <- TRUE
             if (is(clause, "WhereClause")) {
-                built_clause <- sprintf("(%s)", clause$as.request())
+                built_clause <- clause$as.request()
+            } else if (is.list(clause)) {
+                built_clause <- .self$build_where_clause_from_list(clause)
             } else {
-                if (!.self$is_connected()) {
-                    built_clause <- .self$with_connection({
-                        built_clause <- paste(
-                            clause$field$as.request(),
-                            clause$operator,
-                            .self$escape(clause$value)
-                        )
-                    })
-                } else {
-                    built_clause <- built_clause <- paste(
-                        clause$field$as.request(),
-                        clause$operator,
-                        .self$escape(clause$value)
-                    )
-                }
+                stop("Bad where clause type: %s", class(clause))
             }
+            built_clause <- sprintf("(%s)", built_clause)
         }
         result[[length(result)+1]] <- built_clause
     }
     return (paste(result, collapse=" "))
+})
+
+ORM$methods(build_where_clause_from_list=function(clause) {
+    if (!.self$is_connected()) {
+        return (
+            .self$with_connection({
+                .self$build_where_clause_from_list(clause)
+            })
+        )
+    }
+    if (is.list(clause$value)) {
+        escaped_value <- sprintf("(%s)", paste(
+            map(clause$value, .self$escape),
+            collapse=", "
+        ))
+    } else {
+        escaped_value <- .self$escape(clause$value)
+    }
+    return (paste(
+        clause$field$as.request(),
+        clause$operator,
+        escaped_value
+    ))
 })
 
 ORM$methods(build_join_clause=function(join=NULL) {
