@@ -23,7 +23,7 @@ setMethod("==", signature("ModelMeta", "ModelMeta"), function(e1, e2) {
     return (TRUE)
 })
 
-
+#' @method as.matrix ModelMeta
 #' @export
 as.matrix.ModelMeta <- function(x, load_one_to_one=NULL) {
     .self <- selectMethod("$", "envRefClass")(x, ".self")
@@ -42,26 +42,45 @@ as.matrix.ModelMeta <- function(x, load_one_to_one=NULL) {
         }
     }
     return (.self$as_matrix_internal(
-        field_names, load_one_to_one, models, orm
+        field_names, load_one_to_one
     ))
 }
 setMethod("as.matrix", "ModelMeta", as.matrix.ModelMeta)
 setMethod("as.matrix.default", "ModelMeta", as.matrix.ModelMeta)
 
-
-
-ModelMeta$methods(as_matrix_internal=function(field_names, load_one_to_one, models, orm, result_matrix=NULL, index=1) {
-    if (is.null(result_matrix)) {
-        result_matrix <- matrix(
+ModelMeta$methods(as_matrix_internal=function(field_names, load_one_to_one, orm) {
+    return (.self$as_given_container(
+        matrix(
             nrow=1,
             ncol=length(field_names),
             dimnames=list(list(1), field_names)
-        )
-    }
-    print("result_matrix: ")
-    print(result_matrix)
+        ),
+        load_one_to_one, 1
+    ))
+})
+
+#' @method as.data.frame ModelMeta
+#' @export
+as.data.frame.ModelMeta <- function(x, load_one_to_one=NULL) {
+    .self <- selectMethod("$", "envRefClass")(x, ".self")
+    return (.self$as_data.frame_internal(load_one_to_one))
+}
+setMethod("as.data.frame", "ModelMeta", as.data.frame.ModelMeta)
+setMethod("as.data.frame.default", "ModelMeta", as.data.frame.ModelMeta)
+
+ModelMeta$methods(as_data.frame_internal=function(load_one_to_one) {
+    return (.self$as_given_container(
+        data.frame(),
+        load_one_to_one,
+        1
+    ))
+})
+
+ModelMeta$methods(as_given_container=function(container, load_one_to_one, index) {
+    orm <- .self$orm__
+    models <- orm$model_definitions_
     for (field_name in names(.self$fields__)) {
-        result_matrix[index, field_name] <- .self[[field_name]]
+        container[index, field_name] <- .self[[field_name]]
     }
     if (!is.null(load_one_to_one)) {
         for (table in load_one_to_one) {
@@ -76,19 +95,25 @@ ModelMeta$methods(as_matrix_internal=function(field_names, load_one_to_one, mode
                     orm$model_objects_[[table]]()$load_by, args
                 )
                 if (length(foreign_object_rs) != 1) {
+                    for (field_name in names(models[[table]]$fields)) {
+                        container[
+                            index, sprintf("%s_%s", table, field_name)
+                        ] <- NA
+                    }
                     next
                 }
                 foreign_object <- foreign_object_rs$first()
             }
             for (field_name in names(models[[table]]$fields)) {
-                result_matrix[
+                container[
                     index, sprintf("%s_%s", table, field_name)
                 ] <- foreign_object[[field_name]]
             }
         }
     }
-    return (result_matrix)
+    return (container)
 })
+
 ModelMeta$methods(initialize=function(...) {
     "\
     "
@@ -456,6 +481,7 @@ ModelMeta$methods(bulk_save=function(models) {
 
     field_names <- as.list(names(.self$fields__))
     field_names[field_names=="id"] <- NULL
+    print("Bukl request creation...")
     for (model in models) {
         if (is.list(model)) {
             values <- list()
@@ -485,12 +511,12 @@ ModelMeta$methods(bulk_save=function(models) {
         }
     }
     if (length(to_insert)) {
-        print("Bukl request created")
         request <- .self$orm__$create_insert_request(
             table=.self$table__,
             fields=field_names,
             values=to_insert
         )
+        print("Bukl request created")
         .self$orm__$clear_result(.self$orm__$send_statement(request))
     }
     # stop(sprintf(

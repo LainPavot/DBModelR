@@ -18,7 +18,7 @@ sqlite_field_to_R_type_ <- function(field) {
         }
         return ("blob")
     }
-    sopt(sprintf(
+    stop(sprintf(
         "Unknown type: %s. Expected %s",
         field, "INTEGER, TRUE_INTEGER, TEXT, REAL, FLOAT or BLOB"
     ))
@@ -172,7 +172,7 @@ generate_setter_ <- function(class_name, field, type) {
                 "Blobs must contains at least one raw",
                 "vector, like this: `blob::blob(raw())`"
             ))
-            value <- blob::blob(raw())
+            value <- blob::as_blob("")
         }
         if (.self[[field]] == value) {
             return (.self)
@@ -413,7 +413,7 @@ model_builder <- function(model, orm, additional_fields=list(), ...) {
                     if (type == "TEXT") {
                         .self[[field]] <- ""
                     } else if (type == "BLOB") {
-                        .self[[field]] <- blob::blob(raw())
+                        .self[[field]] <- blob::as_blob("")
                     } else if (type == "BOOLEAN") {
                         .self[[field]] <- FALSE
                     } else if (

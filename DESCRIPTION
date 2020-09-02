@@ -26,9 +26,6 @@ Depends:
     purrr
 Suggests:
     RSQLite,
-    RPostgres,
-    RMySQL,
-    RMariaDB,
     testthat,
     knitr,
     blob,
