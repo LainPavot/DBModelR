@@ -114,6 +114,21 @@ ModelMeta$methods(as_given_container=function(container, load_one_to_one, index)
     return (container)
 })
 
+
+#' @method as.list ModelMeta
+#' @export
+as.list.ModelMeta <- function(x, fields=NULL) {
+    .self <- selectMethod("$", "envRefClass")(x, ".self")
+    if (is.null(fields)) {
+        fields <- names(.self$fields__)
+    }
+    result <- lapply(fields, function(x){return (.self[[x]])})
+    names(result) <- fields
+    return (result)
+}
+setMethod("as.list", "ModelMeta", as.list.ModelMeta)
+setMethod("as.list.default", "ModelMeta", as.list.ModelMeta)
+
 ModelMeta$methods(initialize=function(...) {
     "\
     "
