@@ -134,10 +134,41 @@ ResultSet$methods(delete=function() {
     }
 })
 
-ResultSet$methods(fields=function(field) {
-    return (map(
+ResultSet$methods(fields=function(..., multi_dim_type=data.frame) {
+    fields <- list(...)
+    if (base::length(fields) == 1) {
+        return (.self$field(fields[[1]]))
+    }
+    result <- multi_dim_type()
+    if (base::length(fields) > 1) {
+        for (i in seq_along(fields)) {
+            result[i,] <- .self$fields(fields[[i]])
+        }
+    }
+    return (result)
+})
+
+ResultSet$methods(field=function(asked_field, SIMPLIFY=FALSE, ...) {
+    return (mapply(
+        function(x)x[[asked_field]],
         .self$result_set__,
-        function(x)x[[field]]
+        SIMPLIFY=SIMPLIFY,
+        ...
     ))
 })
 
+ResultSet$methods(max=function(field) {
+    return (do.call(base::max, .self$field(field)))
+})
+
+ResultSet$methods(min=function(field) {
+    return (do.call(base::min, .self$field(field)))
+})
+
+ResultSet$methods(mean=function(field) {
+    return (base::mean(.self$field(field, SIMPLIFY=TRUE)))
+})
+
+ResultSet$methods(median=function(field) {
+    return (stats::median(.self$field(field, SIMPLIFY=TRUE)))
+})

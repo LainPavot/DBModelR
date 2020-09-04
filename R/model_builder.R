@@ -35,12 +35,6 @@ sqlite_fields_to_R_types_ <- function(list) {
 
 generate_methods_ <- function(model, class_name, fields) {
     methods <- generate_setters_getters_(model, class_name, fields)
-    methods$setter_for <- function(field) {
-        if (is.null(.self$fields__[[field]])) {
-            return (NULL)
-        }
-        method_name <- sprintf("get_%s", field)
-    }
     return (methods)
 }
 
@@ -433,11 +427,6 @@ model_builder <- function(model, orm, additional_fields=list(), ...) {
         methods$initialize, 3,
         model$table, model, class_name, orm
     )
-    # position <- 3
-    # for (value in list(model$table, model, class_name, orm)) {
-    #     body(methods$initialize)[[position]][[3]] <- value
-    #     position <- position+1
-    # }
     generator <- setRefClass(
         class_name,
         fields=c(fields, additional_fields),

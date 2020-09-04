@@ -93,7 +93,7 @@ if (connected) {
 
     })
 
-    requests <- do.call(c, purrr::map(orm$create_database(), as.vector))
+    requests <- do.call(c, lapply(orm$create_database(), as.vector))
     testthat::test_that("ORM schema generation", {
         testthat::expect_equal(requests[order(requests)], c(
             "CREATE TABLE  adduct (id INTEGER PRIMARY KEY, name TEXT, mass FLOAT, charge INTEGER, multi INTEGER, formula_add TEXT, formula_ded TEXT, sign TEXT, oidscore INTEGER, quasi INTEGER, ips FLOAT)",
@@ -173,12 +173,26 @@ if (connected) {
             }
             return (TRUE)
         })())
-        testthat::expect_true(all(map(
+        testthat::expect_true(all(lapply(
             as.vector(orm$compound()$all()),
             function(x) {
                 is(x, "ModelMeta")
             }
         ))[1])
+    })
+
+    testthat::test_that("ORM result set fields manipulation methods", {
+        rs <- orm$compound()$all()
+        testthat::expect_equal(
+            rs$field("mz"),
+            list(329.771356516, 251.860843648, 195.924947846, 161.963920168)
+        )
+        testthat::expect_equal(
+            rs$field("mz", SIMPLIFY=TRUE),
+            c(329.771356516, 251.860843648, 195.924947846, 161.963920168)
+        )
+        testthat::expect_equal(rs$mean("mz"), 234.88026704450002)
+        testthat::expect_equal(rs$median("mz"), 223.892895747)
     })
 
 
@@ -305,7 +319,48 @@ if (connected) {
             "UPDATE compound SET charge = 1, name = 'Dichlorophenouuul' WHERE ('compound'.'id' == 4)"
         )
     })
+    orm$sample()$save()
 
+    testthat::test_that("ORM model type coercion", {
+        testthat::expect_equal(
+            as.list(dichlorophenol, c("name", "common_name", "formula", "charge", "date", "mz")),
+            list(
+                name="Dichlorophenouuul",
+                common_name="Dichlorophenol",
+                formula="C6H4Cl2O1",
+                charge=1,
+                date="2017-09-01",
+                mz=161.96392016799998714
+            )
+        )
+        testthat::expect_equal(
+            as.matrix(dichlorophenol),
+            matrix(
+                c("Dichlorophenouuul", "Dichlorophenol", "C6H4Cl2O1", "1", "2017-09-01", as.character(161.96392016799998714), "4"),
+                nrow=1, dimnames=list(list(1), c("name", "common_name", "formula", "charge", "date", "mz", "id"))
+            )
+        )
+        testthat::expect_equal(
+            as.data.frame(dichlorophenol),
+            data.frame(
+                name="Dichlorophenouuul", common_name="Dichlorophenol",
+                formula="C6H4Cl2O1", charge=1,
+                date="2017-09-01", mz=161.96392016799998714, id=4
+            )
+        )
+        testthat::expect_equal(
+            as.list(dichlorophenol),
+            list(
+                name="Dichlorophenouuul", common_name="Dichlorophenol",
+                formula="C6H4Cl2O1", charge=1,
+                date="2017-09-01", mz=161.96392016799998714, id=4
+            )
+        )
+        testthat::expect_equal(
+            as.list(dichlorophenol, c("name", "charge")),
+            list(name="Dichlorophenouuul", charge=1)
+        )
+    })
 
 
     ## to be sure that our SQL-I protection works, we must create an
@@ -427,7 +482,7 @@ if (connected) {
         ## now Bob is happy because he has an adress
         ## prints: list(<adress id: 1> ...) etc.
         testthat::expect_equal(
-            map(as.vector(adress <- bob$get_adress()), function(x)x$as.character()),
+            lapply(as.vector(adress <- bob$get_adress()), function(x)x$as.character()),
             list(paste(
                 "<adress [id: 1]>: ",
                 "[number: 42]",
@@ -446,7 +501,7 @@ if (connected) {
         ## we set a more... usual name. And we save it (the adress).
         )[[1]]$set_street("Second street")$save()
         testthat::expect_equal(
-            map(as.vector(bob$get_adress()), function(x)x$as.character()),
+            lapply(as.vector(bob$get_adress()), function(x)x$as.character()),
             list(paste(
                 "<adress [id: 1]>: ",
                 "[number: 42]",
@@ -474,7 +529,7 @@ if (connected) {
                 orm$adress(number=2, street="the squirel's path")
             )$save()
             testthat::expect_equal(
-                map(as.vector(bob$get_adress()), function(x)x$as.character()),
+                lapply(as.vector(bob$get_adress()), function(x)x$as.character()),
                 list(paste(
                     "<adress [id: 1]>: ",
                     "[number: 42]",
@@ -493,7 +548,7 @@ if (connected) {
             ## finily he decided to live in his second house, and sold the
             ## first one.
             testthat::expect_equal(
-                map(
+                lapply(
                     as.vector(bob$get_adress(street="Second street")),
                     function(x)x$as.character()
                 ),
@@ -508,7 +563,7 @@ if (connected) {
             bob$remove_adress(bob$get_adress(street="Second street")$first())
             bob$save()
             testthat::expect_equal(
-                map(as.vector(bob$get_adress()), function(x)x$as.character()),
+                lapply(as.vector(bob$get_adress()), function(x)x$as.character()),
                 list(paste(
                     "<adress [id: 2]>: ",
                     "[number: 2]",

@@ -496,18 +496,14 @@ ModelMeta$methods(bulk_save=function(models) {
 
     field_names <- as.list(names(.self$fields__))
     field_names[field_names=="id"] <- NULL
-    print("Bukl request creation...")
     for (model in models) {
         if (is.list(model)) {
-            values <- list()
             for (field in field_names) {
-                # value <- model[[field]]
-                if(is.null(value <- model[[field]])) {
-                    value <- do.call(.self$fields__[[field]], c())
+                if(is.null(model[[field]])) {
+                    model[[field]] <- do.call(.self$fields__[[field]])
                 }
-                values[[field]] <- value
             }
-            to_insert[[length(to_insert)+1]] <- values
+            to_insert[[length(to_insert)+1]] <- model
         } else if (!is(model, self_type)) {
             stop(sprintf(
                 "%s: Bulk save only work with similar objects, %s found.",
@@ -531,13 +527,8 @@ ModelMeta$methods(bulk_save=function(models) {
             fields=field_names,
             values=to_insert
         )
-        print("Bukl request created")
         .self$orm__$clear_result(.self$orm__$send_statement(request))
     }
-    # stop(sprintf(
-    #     "%s$save(bulk=list(<%s>)) is not implemented yet."
-    #     , model_name__, model_name__
-    # ))
 })
 
 ModelMeta$methods(save_added_fk_=function() {
@@ -606,7 +597,7 @@ ModelMeta$methods(unlink_from_=function(other) {
             )
         )
     )
-    .self$orm__$clear_result(.self$orm__$send_statement(request))
+    .self$orm__$execute(request)
     return (request)
 })
 
