@@ -391,7 +391,7 @@ ModelMeta$methods(load_from_request__=function(request) {
     "
     rs <- .self$orm__$get_query(request)
     if (nrow(rs) == 0) {
-        return (ResultSet())
+        return (DBModelR::ResultSet())
     }
     return (DBModelR::ResultSet(results=.self$load_multiple_from_data__(rs)))
 })
