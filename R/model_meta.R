@@ -35,9 +35,9 @@ as.matrix.ModelMeta <- function(x, load_one_to_one=NULL) {
             sub_fields <- names(models[[table]]$fields)
             field_names <- c(
                 field_names,
-                map(sub_fields, function(field) {
+                mapply(function(field) {
                     return (sprintf("%s_%s", table, field))
-                })
+                }, sub_fields)
             )
         }
     }
@@ -137,12 +137,12 @@ ModelMeta$methods(initialize=function(...) {
     .self$table__ <- "meta"
     .self$fields__ <- list()
     .self$model_name__ <- "ModelMeta"
-    .self$orm__ <- ORM()
+    .self$orm__ <- DBModelR::ORM()
     .self$loaded__ <- FALSE
     .self$cache_read__ <- list()
     .self$cache_remove__ <- list()
     .self$cache_add__ <- list()
-    .self$sql_model__ <- ModelDefinition(
+    .self$sql_model__ <- DBModelR::ModelDefinition(
         table=.self$table__,
         fields=.self$fields__
     )
@@ -207,8 +207,7 @@ ModelMeta$methods(as.character=function() {
     "
     return (paste(
         sprintf("<%s [id: %d]>: ", .self$table__, .self$get_id()),
-        do.call(paste, c(map(
-                Filter(function(x){x!="id"}, names(.self$fields__)),
+        do.call(paste, c(mapply(
                 function(field) {
                     value <- .self[[field]]
                     if (is.character(value)) {
@@ -217,7 +216,7 @@ ModelMeta$methods(as.character=function() {
                         fmt <- "[%s: %s]"
                     }
                     return (sprintf(fmt, field, value))
-                }
+                }, Filter(function(x){x!="id"}, names(.self$fields__))
         ), sep="\n  ")), "",
         sep="\n  "
     ))
@@ -394,7 +393,7 @@ ModelMeta$methods(load_from_request__=function(request) {
     if (nrow(rs) == 0) {
         return (ResultSet())
     }
-    return (ResultSet(results=.self$load_multiple_from_data__(rs)))
+    return (DBModelR::ResultSet(results=.self$load_multiple_from_data__(rs)))
 })
 
 
@@ -402,9 +401,9 @@ ModelMeta$methods(load_multiple_from_data__=function(multiple) {
     "\
     "
     generator <- .self$getRefClass()
-    return (map(seq_len(nrow(multiple)), function(row) {
+    return (mapply(function(row) {
         generator()$load_one_from_data__(multiple[row,])
-    }))
+    }, seq_len(nrow(multiple))))
 })
 
 
@@ -436,7 +435,7 @@ ModelMeta$methods(save=function(bulk=list(), return_request=FALSE) {
             request <- orm$create_insert_request(
                 table=.self$table__,
                 fields=field_names,
-                values=map(field_names, function(x).self[[x]])
+                values=mapply(function(x).self[[x]], field_names)
             )
             new_row <- TRUE
         } else {
