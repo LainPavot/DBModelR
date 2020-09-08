@@ -207,7 +207,7 @@ ModelMeta$methods(as.character=function() {
     "
     return (paste(
         sprintf("<%s [id: %d]>: ", .self$table__, .self$get_id()),
-        do.call(paste, c(mapply(
+        paste(mapply(
                 function(field) {
                     value <- .self[[field]]
                     if (is.character(value)) {
@@ -216,9 +216,9 @@ ModelMeta$methods(as.character=function() {
                         fmt <- "[%s: %s]"
                     }
                     return (sprintf(fmt, field, value))
-                }, Filter(function(x){x!="id"}, names(.self$fields__))
-        ), sep="\n  ")), "",
-        sep="\n  "
+                }, names(.self$fields__)[names(.self$fields__) != "id"]
+        ), collapse="\n  "),
+        "", sep="\n  "
     ))
 })
 
@@ -411,6 +411,9 @@ ModelMeta$methods(load_one_from_data__=function(row) {
     "\
     "
     for (field in names(row)) {
+        if (.self$fields__[[field]] == "BLOB") {
+            field <- field[[1]]
+        }
         .self[[field]] <- row[[field]]
     }
     .self$modified__ <- list()

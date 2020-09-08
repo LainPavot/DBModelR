@@ -394,7 +394,8 @@ JoinClause <- setRefClass(
     fields=c(
         table="character",
         on="OperatorClause",
-        as="character"
+        as="character",
+        kind="character"
     )
 )
 

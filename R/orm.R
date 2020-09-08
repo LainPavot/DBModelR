@@ -1027,12 +1027,15 @@ TableField$methods(show=function(){
 
 
 JoinClause$methods(initialize=function(
-    orm=NULL, table="", on=NULL, as_right="", as_left=""
+    orm=NULL, table="", on=NULL, as_right="", as_left="", kind="INNER"
 ) {
     if (is.null(orm) || is.null(on)) {
         return (.self)
     }
     .self$table <- table
+    if (!is(on, "OperatorClause")) {
+        stop("The 'on' clause of the 'join' clause must be a OperatorClause")
+    }
     .self$on <- on
     .self$as <- ""
     if (as_right != "") {
@@ -1041,8 +1044,12 @@ JoinClause$methods(initialize=function(
     if (as_left != "") {
         .self$set_left_alias(as_left)
     }
-
+    if (!any(grepl("^((INNER)|(LEFT|RIGHT|FULL)(OUTER)?)?$", c(kind)))) {
+        stop("Bad join clause kind. Must be 'INNER' or 'LEFT [OUTER]' or 'RIGHT [OUTER]' or 'FULL [OUTER]'")
+    }
+    .self$kind <- kind
 })
+
 
 JoinClause$methods(set_right_alias=function(as) {
     .self$as <- as
@@ -1059,7 +1066,8 @@ JoinClause$methods(set_left_alias=function(as) {
 })
 
 JoinClause$methods(as.request=function() {
-    return (sprintf("INNER JOIN %s ON %s", (
+    return (sprintf("%s JOIN %s ON %s", 
+        .self$kind, (
         if (.self$as != "") sprintf("%s %s", .self$table, .self$as)
         else table
     ), on$as.request()))
