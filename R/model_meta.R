@@ -37,7 +37,7 @@ as.matrix.ModelMeta <- function(x, load_one_to_one=NULL) {
                 field_names,
                 mapply(function(field) {
                     return (sprintf("%s_%s", table, field))
-                }, sub_fields)
+                }, sub_fields, SIMPLIFY=FALSE)
             )
         }
     }
@@ -208,15 +208,17 @@ ModelMeta$methods(as.character=function() {
     return (paste(
         sprintf("<%s [id: %d]>: ", .self$table__, .self$get_id()),
         paste(mapply(
-                function(field) {
-                    value <- .self[[field]]
-                    if (is.character(value)) {
-                        fmt <- "[%s: \"%s\"]"
-                    } else {
-                        fmt <- "[%s: %s]"
-                    }
-                    return (sprintf(fmt, field, value))
-                }, names(.self$fields__)[names(.self$fields__) != "id"]
+            function(field) {
+                value <- .self[[field]]
+                if (is.character(value)) {
+                    fmt <- "[%s: \"%s\"]"
+                } else {
+                    fmt <- "[%s: %s]"
+                }
+                return (sprintf(fmt, field, value))
+            },
+            names(.self$fields__)[names(.self$fields__) != "id"],
+            SIMPLIFY=FALSE
         ), collapse="\n  "),
         "", sep="\n  "
     ))
@@ -401,9 +403,13 @@ ModelMeta$methods(load_multiple_from_data__=function(multiple) {
     "\
     "
     generator <- .self$getRefClass()
-    return (mapply(function(row) {
-        generator()$load_one_from_data__(multiple[row,])
-    }, seq_len(nrow(multiple))))
+    return (mapply(
+        function(row) {
+            generator()$load_one_from_data__(multiple[row,])
+        },
+        seq_len(nrow(multiple)),
+        SIMPLIFY=FALSE
+    ))
 })
 
 
@@ -438,7 +444,7 @@ ModelMeta$methods(save=function(bulk=list(), return_request=FALSE) {
             request <- orm$create_insert_request(
                 table=.self$table__,
                 fields=field_names,
-                values=mapply(function(x).self[[x]], field_names)
+                values=mapply(function(x).self[[x]], field_names, SIMPLIFY=FALSE)
             )
             new_row <- TRUE
         } else {
