@@ -512,7 +512,7 @@ ModelMeta$methods(bulk_save=function(models) {
         if (is.list(model)) {
             for (field in field_names) {
                 if(is.null(model[[field]])) {
-                    model[[field]] <- do.call(.self$fields__[[field]])
+                    model[[field]] <- do.call(.self$fields__[[field]], list())
                 }
             }
             to_insert[[length(to_insert)+1]] <- model
