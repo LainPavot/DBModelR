@@ -150,7 +150,7 @@ ModelMeta$methods(initialize=function(...) {
     .self$NOT_RETRIEVED <- -2
 })
 
-ModelMeta$methods(clear=function(...) {
+ModelMeta$methods(clear=function(..., unset_id=FALSE) {
     for (field in names(.self$fields__)) {
         type <- .self$fields__[[field]]
         if (type == "TEXT") {
@@ -167,6 +167,10 @@ ModelMeta$methods(clear=function(...) {
             .self[[field]] <- blob::blob(raw())
         }
     }
+    if (unset_id) {
+        .self$set_id(.self$NOT_CREATED)
+    }
+    .self$modified__ <- list()
 })
 
 ModelMeta$methods(join_clause=function(...) {
