@@ -510,12 +510,33 @@ ModelMeta$methods(bulk_save=function(models) {
     field_names[field_names=="id"] <- NULL
     for (model in models) {
         if (is.list(model)) {
+            result <- list()
             for (field in field_names) {
                 if(is.null(model[[field]])) {
-                    model[[field]] <- do.call(.self$fields__[[field]], list())
+
+                    type <- .self$fields__[[field]]
+                    if (type == "INTEGER") {
+                        value <- 0
+                    } else if (type == "TRUE_INTEGER") {
+                        value <- 0
+                    } else if (type == "TEXT") {
+                        value <- ""
+                    } else if (type == "FLOAT") {
+                        value <- 0
+                    } else if (type == "REAL") {
+                        value <- 0
+                    } else if (type == "BLOB") {
+                        if (!require("blob", quietly=TRUE)) {
+                            stop("You need to install the package \"blob\" to uses this type")
+                        }
+                        value <- as.blob("")
+                    }
+                    model[[field]] <- value
+
                 }
+                result[[field]] <- model[[field]]
             }
-            to_insert[[length(to_insert)+1]] <- model
+            to_insert[[length(to_insert)+1]] <- result
         } else if (!is(model, self_type)) {
             stop(sprintf(
                 "%s: Bulk save only work with similar objects, %s found.",
@@ -539,6 +560,9 @@ ModelMeta$methods(bulk_save=function(models) {
             fields=field_names,
             values=to_insert
         )
+        sink(stderr())
+        print(request)
+        sink()
         .self$orm__$clear_result(.self$orm__$send_statement(request))
     }
 })
