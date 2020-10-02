@@ -560,9 +560,6 @@ ModelMeta$methods(bulk_save=function(models) {
             fields=field_names,
             values=to_insert
         )
-        sink(stderr())
-        print(request)
-        sink()
         .self$orm__$clear_result(.self$orm__$send_statement(request))
     }
 })
