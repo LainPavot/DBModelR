@@ -786,7 +786,7 @@ ORM$methods(build_insert_values=function(values=NULL, imbricated=FALSE) {
             .self$build_insert_values(values)
         }))
     } else {
-        if (imbricated || !is(values[[1]], "list")) {
+        if (imbricated || !is(values[[1]], "list") || is(values[[1]], "blob")) {
             mapper <- function(x) {
                 if (is(x, "list") && !is(x, "blob")) {
                     stop(sprintf(

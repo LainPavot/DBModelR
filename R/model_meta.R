@@ -529,7 +529,7 @@ ModelMeta$methods(bulk_save=function(models) {
                         if (!require("blob", quietly=TRUE)) {
                             stop("You need to install the package \"blob\" to uses this type")
                         }
-                        value <- as.blob("")
+                        value <- blob::as.blob("")
                     }
                     model[[field]] <- value
 
@@ -555,11 +555,13 @@ ModelMeta$methods(bulk_save=function(models) {
         }
     }
     if (length(to_insert)) {
+        print(to_insert)
         request <- .self$orm__$create_insert_request(
             table=.self$table__,
             fields=field_names,
             values=to_insert
         )
+        print(request)
         .self$orm__$clear_result(.self$orm__$send_statement(request))
     }
 })
