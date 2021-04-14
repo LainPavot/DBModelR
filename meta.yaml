@@ -1,0 +1,45 @@
+{% set version = "0.1.1" %}
+
+package:
+  name: r-dbmodelr
+  version: {{ version }}
+
+source:
+  git_url: https://github.com/LainPavot/DBModelR.git
+  git_rev: v{{ version }}
+  git_depth: 1
+
+build:
+  script: Rscript ./test_install_package.R
+
+requirements:
+  run:
+    - sqlite
+    - r-base
+    - r-rlang
+    - r-purrr
+    - r-blob
+    - r-dbi
+    - r-rsqlite
+  host:
+    - sqlite
+    - r-base
+    - r-rlang
+    - r-purrr
+    - r-blob
+    - r-dbi
+    - r-rsqlite
+
+test:
+  commands:
+    - R -e "library('DBModelR')"
+
+about:
+  home: https://github.com/LainPavot/DBModelR
+  license: GNU AFFERO GENERAL PUBLIC LICENSE
+  summary: 'An ORM in R'
+  description: |
+    An ORM to handle database request through R objects.
+  dev_url: https://github.com/LainPavot/DBModelR
+  doc_url: https://github.com/LainPavot/DBModelR
+  doc_source_url: https://github.com/LainPavot/DBModelR/blob/v{{ version }}/README.md

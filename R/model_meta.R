@@ -555,13 +555,11 @@ ModelMeta$methods(bulk_save=function(models) {
         }
     }
     if (length(to_insert)) {
-        print(to_insert)
         request <- .self$orm__$create_insert_request(
             table=.self$table__,
             fields=field_names,
             values=to_insert
         )
-        print(request)
         .self$orm__$clear_result(.self$orm__$send_statement(request))
     }
 })

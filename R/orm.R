@@ -147,6 +147,23 @@ ORM$methods(models=function(models=NULL) {
             .self$model_objects_[[definition$table]] <- model_builder(
                 definition, .self
             )
+            for(relation in definition$many) {
+                    if (definition$table < relation) {
+                        a <- definition$table
+                        b <- relation
+                    } else {
+                        b <- definition$table
+                        a <- relation
+                    }
+                    link_table_name <- sprintf("%s_%s", a, b)
+                    .self$model_objects_[[link_table_name]] <- model_builder(
+                        ModelDefinition(
+                            table=link_table_name,
+                            fields=list(),
+                            one=list(a, b)
+                        ), .self
+                    )
+            }
         }
     }
     return (.self$model_objects_)
