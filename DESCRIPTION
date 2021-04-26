@@ -9,7 +9,7 @@ Description: Defines an ORM (Object Relational Mapping) that
     Links between table are created and deleted automatically if
     necessary to prevent database growth and "dead links".
 License: AGPL | file LICENSE
-Version: 0.1.1
+Version: 0.2.0
 Authors@R: c(
     person(
         "Lain", "Pavot",
