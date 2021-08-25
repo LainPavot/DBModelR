@@ -36,7 +36,6 @@ ORM$methods(initialize=function(
     connect: A boolean telling weither the orm will try to connect to the
     database during instantiation or not.
     "
-    .self$connection_ <- NULL
     .self$SQLITE <- "SQLite"
     .self$POSTGRESQL <- "Postgres"
     .self$MARIADB <- "MariaDB"
@@ -231,7 +230,6 @@ ORM$methods(disconnect=function(remove=FALSE) {
         if (remove && !is.null(.self$connection_parameters_[[1]])) {
             file.remove(.self$connection_parameters_[[1]])
         }
-        .self$connection_ <- NULL
     }
     return (!.self$is_connected())
 })

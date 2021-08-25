@@ -152,7 +152,7 @@ ModelMeta$methods(initialize=function(...) {
 
 ModelMeta$methods(clear=function(..., unset_id=FALSE) {
     for (field in names(.self$fields__)) {
-        type <- .self$fields__[[field]]
+        type <- toupper(.self$fields__[[field]])
         if (type == "TEXT") {
             .self[[field]] <- ""
         } else if (
@@ -163,6 +163,8 @@ ModelMeta$methods(clear=function(..., unset_id=FALSE) {
             .self[[field]] <- 0
         } else if (type == "BOOLEAN") {
             .self[[field]] <- FALSE
+        } else if (type == "POSIXT") {
+            .self[[field]] <- as.POSIXct(Sys.time())
         } else if (type == "BLOB") {
             .self[[field]] <- blob::blob(raw())
         }
@@ -209,8 +211,13 @@ ModelMeta$methods(show=function() {
 ModelMeta$methods(as.character=function() {
     "\
     "
+    if ("id" %in% names(.self$fields__)) {
+        id <- .self$get_id()
+    } else {
+        id <- -1
+    }
     return (paste(
-        sprintf("<%s [id: %d]>: ", .self$table__, .self$get_id()),
+        sprintf("<%s [id: %d]>: ", .self$table__, id),
         paste(mapply(
             function(field) {
                 value <- .self[[field]]
@@ -522,13 +529,15 @@ ModelMeta$methods(bulk_save=function(models) {
             for (field in field_names) {
                 if(is.null(model[[field]])) {
 
-                    type <- .self$fields__[[field]]
+                    type <- toupper(.self$fields__[[field]])
                     if (type == "INTEGER") {
                         value <- 0
                     } else if (type == "TRUE_INTEGER") {
                         value <- 0
                     } else if (type == "TEXT") {
                         value <- ""
+                    } else if (type == "POSIXT") {
+                        value <- as.POSIXct(Sys.time())
                     } else if (type == "FLOAT") {
                         value <- 0
                     } else if (type == "REAL") {

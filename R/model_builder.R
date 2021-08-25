@@ -34,6 +34,8 @@ sqlite_field_to_R_type_ <- function(field) {
         return ("integer")
     } else if (field == "TEXT") {
         return ("character")
+    } else if (field == "POSIXT") {
+        return ("POSIXt")
     } else if (field == "FLOAT") {
         return ("numeric")
     } else if (field == "REAL") {
@@ -46,7 +48,7 @@ sqlite_field_to_R_type_ <- function(field) {
     }
     stop(sprintf(
         "Unknown type: %s. Expected %s",
-        field, "INTEGER, TRUE_INTEGER, TEXT, REAL, FLOAT or BLOB"
+        field, "INTEGER, TRUE_INTEGER, TEXT, POSIXt, REAL, FLOAT or BLOB"
     ))
     ## todo: throw error
     return ("unknown")
@@ -166,6 +168,8 @@ generate_setter_ <- function(class_name, field, type) {
         test <- is.numeric
     } else if (type == "character") {
         test <- is.character
+    } else if (type == "POSIXt") {
+        test <- function(x) {is(x, "POSIXt")}
     } else if (type == "integer") {
         test <- is.integer
     } else if (type == "blob") {
