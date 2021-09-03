@@ -122,7 +122,7 @@ as.list.ModelMeta <- function(x, fields=NULL) {
     if (is.null(fields)) {
         fields <- names(.self$fields__)
     }
-    result <- lapply(fields, function(x){return (.self[[x]])})
+    result <- lapply(fields, .self$field)
     names(result) <- fields
     return (result)
 }
@@ -408,24 +408,28 @@ ModelMeta$methods(load_multiple_from_data__=function(multiple) {
     "
     generator <- .self$getRefClass()
     return (mapply(
-        function(row) {
-            generator()$load_one_from_data__(multiple[row,])
-        },
-        seq_len(nrow(multiple)),
-        SIMPLIFY=FALSE
+        function(row) do.call(generator, multiple[row, ]),
+        seq_len(nrow(multiple))
     ))
 })
 
 
-ModelMeta$methods(load_one_from_data__=function(row) {
+ModelMeta$methods(load_one_from_data__=function(data, row, data_names) {
     "\
     "
-    for (field in names(row)) {
-        if (.self$fields__[[field]] == "BLOB") {
-            field <- field[[1]]
-        }
-        .self[[field]] <- row[[field]]
-    }
+    # print(data_names)
+    # print(line <- as.list(row)[data_names])
+    .self$field(data[row, ])
+    # .self[[data_names]] <- data[row, data_names]
+    # print(data[row,])
+    # print(.self$fields__)
+    # print(as.list(.self))
+    # for (field in data_names) {
+    #     if (.self$fields__[[field]] == "BLOB") {
+    #         field <- field[[1]]
+    #     }
+    #     .self[[field]] <- row[[field]]
+    # }
     .self$modified__ <- list()
     .self$loaded__ <- TRUE
     return (.self)
@@ -445,22 +449,26 @@ ModelMeta$methods(save=function(bulk=list(), return_request=FALSE) {
             .self$save_added_fk_()
             field_names <- as.list(names(.self$fields__))
             field_names[field_names=="id"] <- NULL
+            values <- (mapply(function(field) {
+                value <- .self[[field]]
+                if (
+                    is.null(value)
+                    || identical(value, character(0))
+                    || identical(value, numeric(0))
+                ) get_default_value_for(.self$fields__[[field]])
+                else value
+            }, field_names, SIMPLIFY=FALSE))
             request <- orm$create_insert_request(
                 table=.self$table__,
                 fields=field_names,
-                values=mapply(function(x).self[[x]], field_names, SIMPLIFY=FALSE)
+                values=values
             )
             new_row <- TRUE
         } else {
             if (length(.self$modified__) == 0) {
                 request <- ""
             } else {
-                values <- list()
-                field_names <- as.list(names(.self$modified__))
-                field_names[field_names=="id"] <- NULL
-                for (field in field_names) {
-                    values[[field]] <- .self[[field]]
-                }
+                values <- as.list(.self, fields=names(.self$modified__))
                 request <- orm$create_update_request(
                     table=.self$table__,
                     values=values,

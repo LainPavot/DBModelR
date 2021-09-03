@@ -1,7 +1,33 @@
 
 
+get_default_value_for <- function(field) {
+    if (field == "INTEGER") {
+        return (0)
+    } else if (field == "TRUE_INTEGER") {
+        return (0)
+    } else if (field == "TEXT") {
+        return ("")
+    } else if (field == "FLOAT") {
+        return (0.0)
+    } else if (field == "REAL") {
+        return (0)
+    } else if (field == "BOOLEAN") {
+        return (FALSE)
+    } else if (field == "BLOB") {
+        if (!require("blob", quietly=TRUE)) {
+            stop("You need to install the package \"blob\" to uses this type")
+        }
+        return (blob::as_blob(""))
+    }
+    stop(sprintf(
+        "Unknown type: %s. Expected %s",
+        field, "INTEGER, TRUE_INTEGER, TEXT, REAL, FLOAT or BLOB"
+    ))
+    ## todo: throw error
+    return ("unknown")
+}
+
 sqlite_field_to_R_type_ <- function(field) {
-    field <- toupper(field)
     if (field == "INTEGER") {
         return ("numeric")
     } else if (field == "TRUE_INTEGER") {
@@ -397,30 +423,9 @@ model_builder <- function(model, orm, additional_fields=list(), ...) {
         .self$fields__ <- .self$sql_model__$fields
         params <- list(...)
         .self$id <- .self$NOT_CREATED
-        for(field in names(.self$fields__)) {
-            if (field != "id") {
-                if (!is.null(params[[field]])) {
-                    .self$modified__[[field]] <- .self[[field]]
-                    .self[[field]] <- params[[field]]
-                } else {
-                    type <- toupper(.self$fields__[[field]])
-                    if (type == "TEXT") {
-                        .self[[field]] <- ""
-                    } else if (type == "BLOB") {
-                        .self[[field]] <- blob::as_blob("")
-                    } else if (type == "BOOLEAN") {
-                        .self[[field]] <- FALSE
-                    } else if (
-                        type == "INTEGER"
-                        || type == "FLOAT"
-                        || type == "REAL"
-                    ) {
-                        .self[[field]] <- 0
-                    } else {
-                        stop(sprintf("Unknown field type: %s", type))
-                    }
-                }
-            }
+        for(field in names(params)) {
+            .self$modified__[[field]] <- .self[[field]]
+            .self[[field]] <- params[[field]]
         }
     }
     methods$initialize <- inject_local_function_dependencies_(
