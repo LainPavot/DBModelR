@@ -391,7 +391,7 @@ ORM$methods(join_clause=function(...) {
 ORM$methods(with_unsafe_mode__=function(code) {
     "
     Use this function only if you realy know what you do.
-    Deactivates input escaping, execute the expression, and 
+    Deactivates input escaping, execute the expression, and
     reactivate it.
     Returns the result from the expr
     "
@@ -408,19 +408,23 @@ ORM$methods(with_connection=function(code) {
     disconnect from the database.
     Returns the result of the exprssion.
     "
+    res <- NULL
     if (!.self$is_connected()) {
         .self$connect()
         if (!.self$is_connected()) {
             stop("Could not connect to the database.")
         }
-        res <- code
-        .self$disconnect()
-    } else {
-        ## code is evaluated here
-        ## ... or perhaps in "res <- .self$with_connection(code)"
-        ## I dunno lol
-        res <- code
     }
+    ## code is evaluated here
+    ## ... or perhaps in "res <- .self$with_connection(code)"
+    ## I dunno lol
+    tryCatch({
+        res <- code
+    }, error=function(e) {
+        .self$disconnect()
+        stop(e)
+    })
+    .self$disconnect()
     return (res)
 })
 
@@ -1104,7 +1108,7 @@ JoinClause$methods(set_left_alias=function(as) {
 })
 
 JoinClause$methods(as.request=function() {
-    return (sprintf("%s JOIN %s ON %s", 
+    return (sprintf("%s JOIN %s ON %s",
         .self$kind, (
         if (.self$as != "") sprintf("%s %s", .self$table, .self$as)
         else table
