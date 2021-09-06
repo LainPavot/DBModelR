@@ -212,12 +212,12 @@ ModelMeta$methods(as.character=function() {
     "\
     "
     if ("id" %in% names(.self$fields__)) {
-        id <- .self$get_id()
+        curent_id <- .self$get_id()
     } else {
-        id <- -1
+        curent_id <- -1
     }
     return (paste(
-        sprintf("<%s [id: %d]>: ", .self$table__, id),
+        sprintf("<%s [id: %d]>: ", .self$table__, curent_id),
         paste(mapply(
             function(field) {
                 value <- .self[[field]]
@@ -275,35 +275,39 @@ ModelMeta$methods(load_by=function(...) {
     for (i in seq_along(fields)) {
         field <- field_names[[i]]
         value <- fields[[i]]
-        if (
-            field == ""
-            && (
-                value == .self$orm__$LOGICAL_CONNECTORS$AND
-                || value == .self$orm__$LOGICAL_CONNECTORS$OR
-            )
-        ) {
-            if (!previous_is_where) {
-                stop(paste0(value, " not following where clause."))
+        if (!is(value, "WhereClause")) {
+            if (is(value, "JoinClause")) {
+                join[[length(join)+1]] <- value
+                next
             }
-            where[[length(where)+1]] <- value
-            previous_is_where <- FALSE
-            next
-        }
-        if (is(value, "JoinClause")) {
-            join[[length(join)+1]] <- value
-            next
-        }
-        if (!is.null(field) && field == "add_from") {
-            add_from[[length(add_from)+1]] <- value
-            next
-        }
-        if (!is.null(field) && field == "distinct") {
-            distinct <- value
-            next
-        }
-        if (!is.null(field) && field == "group by") {
-            group_by <- value
-            next
+            if (!is.null(field) && !is.null(value)) {
+                if (
+                    field == ""
+                    && (
+                        value == .self$orm__$LOGICAL_CONNECTORS$AND
+                        || value == .self$orm__$LOGICAL_CONNECTORS$OR
+                    )
+                ) {
+                    if (!previous_is_where) {
+                        stop(paste0(value, " not following where clause."))
+                    }
+                    where[[length(where)+1]] <- value
+                    previous_is_where <- FALSE
+                    next
+                }
+                if (field == "add_from") {
+                    add_from[[length(add_from)+1]] <- value
+                    next
+                }
+                if (field == "distinct") {
+                    distinct <- value
+                    next
+                }
+                if (field == "group by") {
+                    group_by <- value
+                    next
+                }
+            }
         }
         if (previous_is_where) {
             where[[length(where)+1]] <- .self$orm__$LOGICAL_CONNECTORS$AND
@@ -336,14 +340,14 @@ ModelMeta$methods(create_where_clause=function(field, value) {
          return (.self$unparse_where_expression(field, value))
     }
     if (is(value, "ModelMeta")) {
-        if (id <- value$get_id() == -1) {
+        if (curent_id <- value$get_id() == -1) {
             stop(sprintf(paste0(
                 "The %s has never been saved to the ",
                 "database, and so has no id. You must ",
                 "save the it before."
             )), class(value))
         }
-        value <- id
+        value <- curent_id
     }
     return (.self$create_where_clause_from_raw_value(field, value))
 })
@@ -444,6 +448,7 @@ ModelMeta$methods(load_multiple_from_data__=function(multiple) {
 ModelMeta$methods(load_one_from_data__=function(data, row, data_names) {
     "\
     "
+    stop("not implemented")
     # print(data_names)
     # print(line <- as.list(row)[data_names])
     .self$field(data[row, ])

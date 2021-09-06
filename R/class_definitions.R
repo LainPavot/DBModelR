@@ -258,7 +258,8 @@ ModelMeta <- setRefClass(
         cache_add__="list",
         NOT_CREATED="numeric",
         NOT_RETRIEVED="numeric",
-        id="numeric"
+        id="numeric",
+        field_converters__="list"
     )
 )
 

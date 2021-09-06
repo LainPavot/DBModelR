@@ -1,57 +1,99 @@
 
 
-get_default_value_for <- function(field) {
-    if (field == "INTEGER") {
-        return (0)
-    } else if (field == "TRUE_INTEGER") {
-        return (0)
-    } else if (field == "TEXT") {
-        return ("")
-    } else if (field == "FLOAT") {
-        return (0.0)
-    } else if (field == "REAL") {
-        return (0)
-    } else if (field == "BOOLEAN") {
-        return (FALSE)
-    } else if (field == "BLOB") {
-        if (!require("blob", quietly=TRUE)) {
-            stop("You need to install the package \"blob\" to uses this type")
-        }
+require_blob <- function() {
+    if (!require("blob", quietly=TRUE)) {
+        stop("You need to install the package \"blob\" to uses this type")
+    }
+}
+
+
+FIELDS_CONVERTERS <- list(
+    INTEGER=function() return (as.numeric),
+    TRUE_INTEGER=function() return (as.integer),
+    TEXT=function() return (as.character),
+    POSIXT=function() return (as.POSIXct),
+    FLOAT=function() return (as.numeric),
+    REAL=function() return (as.numeric),
+    BLOB=function() {
+        require_blob()
+        return (blob::as.blob)
+    }
+)
+
+FIELDS_DEFAULT_VALUES <- list(
+    INTEGER=function() return(0),
+    TRUE_INTEGER=function() return(0),
+    TEXT=function() return(""),
+    FLOAT=function() return(0.0),
+    REAL=function() return(0),
+    POSIXT=function() return(as.POSIXct(Sys.time())),
+    BOOLEAN=function() return(FALSE),
+    BLOB=function() {
+        require_blob()
         return (blob::as_blob(""))
     }
-    stop(sprintf(
-        "Unknown type: %s. Expected %s",
-        field, "INTEGER, TRUE_INTEGER, TEXT, REAL, FLOAT or BLOB"
-    ))
-    ## todo: throw error
-    return ("unknown")
+)
+
+SQLITE_FIELD_TO_R_TYPE <- list(
+    INTEGER=function() return("numeric"),
+    TRUE_INTEGER=function() return("integer"),
+    TEXT=function() return("character"),
+    FLOAT=function() return("numeric"),
+    REAL=function() return("numeric"),
+    POSIXT=function() return("POSIXt"),
+    BOOLEAN=function() return("boolean"),
+    BLOB=function() {
+        require_blob()
+        return ("blob")
+    }
+)
+
+get_from_constant_ <- function(field, constant_table) {
+    field <- toupper(field)
+    if (is.null(getter <- constant_table[[field]])) {
+        stop(sprintf(
+            "Unknown type: %s. Expected any of %s",
+            field, paste(names(constant_table), collapse=", ")
+        ))
+    }
+    return (getter())
+
+}
+
+get_converter_for <- function(field) {
+    return (get_from_constant_(field, FIELDS_CONVERTERS))
+    field <- toupper(field)
+    if (is.null(converter <- FIELDS_CONVERTERS[[field]])) {
+        stop(sprintf(
+            "Unknown type: %s. Expected any of %s",
+            field, paste(names(FIELDS_CONVERTERS), collapse=", ")
+        ))
+    }
+    return (converter())
+}
+
+get_default_value_for <- function(field) {
+    return (get_from_constant_(field, FIELDS_DEFAULT_VALUES))
+    field <- toupper(field)
+    if (is.null(default_value <- FIELDS_DEFAULT_VALUES[[field]])) {
+        stop(sprintf(
+            "Unknown type: %s. Expected %s",
+            field, paste(names(FIELDS_DEFAULT_VALUES), collapse=", ")
+        ))
+    }
+    return (default_value())
 }
 
 sqlite_field_to_R_type_ <- function(field) {
-    if (field == "INTEGER") {
-        return ("numeric")
-    } else if (field == "TRUE_INTEGER") {
-        return ("integer")
-    } else if (field == "TEXT") {
-        return ("character")
-    } else if (field == "POSIXT") {
-        return ("POSIXt")
-    } else if (field == "FLOAT") {
-        return ("numeric")
-    } else if (field == "REAL") {
-        return ("numeric")
-    } else if (field == "BLOB") {
-        if (!require("blob", quietly=TRUE)) {
-            stop("You need to install the package \"blob\" to uses this type")
-        }
-        return ("blob")
+    return (get_from_constant_(field, SQLITE_FIELD_TO_R_TYPE))
+    field <- toupper(field)
+    if (is.null(r_type <- SQLITE_FIELD_TO_R_TYPE[[field]])) {
+        stop(sprintf(
+            "Unknown type: %s. Expected %s",
+            field, paste(names(SQLITE_FIELD_TO_R_TYPE), collapse=", ")
+        ))
     }
-    stop(sprintf(
-        "Unknown type: %s. Expected %s",
-        field, "INTEGER, TRUE_INTEGER, TEXT, POSIXt, REAL, FLOAT or BLOB"
-    ))
-    ## todo: throw error
-    return ("unknown")
+    return (r_type())
 }
 
 sqlite_fields_to_R_types_ <- function(list) {
@@ -393,6 +435,14 @@ class_name_from_table_name_ <- function(table_name) {
     ))
 }
 
+build_fields_converters_ <- function(fields) {
+    converters <- list()
+    for (field_name in names(fields)) {
+        converters[[field_name]] <- get_converter_for(fields[[field_name]])
+    }
+    return (converters)
+}
+
 inject_local_function_dependencies_ <- function(func, begin, ...) {
     "
     crapy hacks to pass the values to the function...
@@ -417,24 +467,28 @@ inject_local_function_dependencies_ <- function(func, begin, ...) {
 model_builder <- function(model, orm, additional_fields=list(), ...) {
     class_name <- class_name_from_table_name_(model$table)
     fields <- sqlite_fields_to_R_types_(model$fields)
+    field_converters <- build_fields_converters_(model$fields)
     methods <- generate_methods_(model, class_name, fields)
     methods[["initialize"]] <- function(...) {
-        callSuper(...)
+        # callSuper(...)
         .self$table__ <- table
         .self$sql_model__ <- model
         .self$model_name__ <- class_name
         .self$orm__ <- orm
+        .self$field_converters__ <- field_converters
         .self$fields__ <- .self$sql_model__$fields
         params <- list(...)
         .self$id <- .self$NOT_CREATED
         for(field in names(params)) {
             .self$modified__[[field]] <- .self[[field]]
-            .self[[field]] <- params[[field]]
+            .self[[field]] <- (
+                .self$field_converters__[[field]](params[[field]])
+            )
         }
     }
     methods$initialize <- inject_local_function_dependencies_(
-        methods$initialize, 3,
-        model$table, model, class_name, orm
+        methods$initialize, 2,
+        model$table, model, class_name, orm, field_converters, fields
     )
     generator <- setRefClass(
         class_name,
