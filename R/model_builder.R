@@ -182,23 +182,23 @@ generate_setter_ <- function(class_name, field, type) {
         Type <%s> expected, got <%%s> with value: %%s",
         class_name, field, type
     )
-    setter <- function(value) {
+    setter <- function(new_value) {
         field <- field
         err_string <- err_string
         test <- test
-        if (missing(value)) {
-            return(.self$field(field, value))
-        } else if (!test(value)) {
-            stop(sprintf(err_string, class(value), value))
+        if (missing(new_value)) {
+            return(.self$field(field, new_value))
+        } else if (!test(new_value)) {
+            stop(sprintf(err_string, class(new_value), new_value))
         }
-        if (is(value, "blob") && length(value) == 0) {
+        if (is(new_value, "blob") && length(new_value) == 0) {
             warning(paste(
                 "Blobs must contains at least one raw",
                 "vector, like this: `blob::blob(raw())`"
             ))
-            value <- blob::as_blob("")
+            new_value <- blob::as_blob("")
         }
-        if (.self[[field]] == value) {
+        if (.self[[field]] == new_value) {
             return (.self)
         }
         if (is.null(.self$modified__[[field]])) {
@@ -206,14 +206,14 @@ generate_setter_ <- function(class_name, field, type) {
             if (.self$loaded__) {
                 .self$modified__[[field]] <- .self[[field]]
             } else {
-                .self$modified__[[field]] <- value
+                .self$modified__[[field]] <- new_value
             }
-        } else if (.self$modified__[[field]] == value) {
-            ## if already modified and back to ariginal value,
+        } else if (.self$modified__[[field]] == new_value) {
+            ## if already modified and back to ariginal new_value,
             ## remove the "modified" flag for this field
             .self$modified__[[field]] <- NULL
         }
-        .self[[field]] <- value
+        .self[[field]] <- new_value
         return (.self)
     }
     setter <- inject_local_function_dependencies_(
