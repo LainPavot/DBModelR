@@ -307,6 +307,20 @@ if (connected) {
         )
     })
 
+
+    testthat::test_that("ORM model loading with raw OR operator", {
+        compound <- orm$compound()
+        compounds <- compound$load_by(
+            name="Dichlorophenol",
+            orm$LOGICAL_CONNECTORS$OR,
+            name="Trichlorophenol"
+        )
+        testthat::expect_true(
+            compounds[[1]] == trichlorophenol &&
+            compounds[[2]] == dichlorophenol
+        )
+    })
+
     testthat::test_that("ORM model updating", {
         testthat::expect_equal(
             (
@@ -316,7 +330,7 @@ if (connected) {
                 $set_name("Dichlorophenouuul")
                 $save(return_request=TRUE)
             ),
-            "UPDATE compound SET charge = 1, name = 'Dichlorophenouuul' WHERE ('compound'.'id' == 4)"
+            "UPDATE compound SET charge = 1, name = 'Dichlorophenouuul' WHERE (compound.id = 4)"
         )
     })
     orm$sample()$save()

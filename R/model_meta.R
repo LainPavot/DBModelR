@@ -275,6 +275,20 @@ ModelMeta$methods(load_by=function(...) {
     for (i in seq_along(fields)) {
         field <- field_names[[i]]
         value <- fields[[i]]
+        if (
+            field == ""
+            && (
+                value == .self$orm__$LOGICAL_CONNECTORS$AND
+                || value == .self$orm__$LOGICAL_CONNECTORS$OR
+            )
+        ) {
+            if (!previous_is_where) {
+                stop(paste0(value, " not following where clause."))
+            }
+            where[[length(where)+1]] <- value
+            previous_is_where <- FALSE
+            next
+        }
         if (is(value, "JoinClause")) {
             join[[length(join)+1]] <- value
             next

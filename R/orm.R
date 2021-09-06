@@ -63,7 +63,7 @@ ORM$methods(initialize=function(
     .self$OPERATORS <- list(
         GE=">=", LE="<=",
         GT=">",  LT="<",
-        EQ="==", NE="!=",
+        EQ="=", NE="!=",
         IN="IN", NIN="NOT IN",
         LIKE="LIKE", NLIKE="NOT LIKE"
     )
@@ -1056,7 +1056,7 @@ TableField$methods(initialize=function(orm=NULL, table="", field="") {
 })
 
 TableField$methods(as.request=function() {
-    return (sprintf("'%s'.'%s'", .self$table, .self$field))
+    return (sprintf("%s.%s", .self$table, .self$field))
 })
 
 TableField$methods(show=function(){
