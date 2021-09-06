@@ -211,6 +211,7 @@ ORM <- setRefClass(
         INSERT_WHERE_TEMPLATE="character",
         UPDATE_WHERE_TEMPLATE="character",
         FK_CONSTRAINT_TEMPLATE="character",
+        GROUP_BY_TEMPLATE="character",
         OPERATORS="list",
         LOGICAL_CONNECTORS="list",
         escape_values__must_be_true__="logical",

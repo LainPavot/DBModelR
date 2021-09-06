@@ -271,6 +271,7 @@ ModelMeta$methods(load_by=function(...) {
     field_names <- names(fields)
     previous_is_where <- FALSE
     distinct <- FALSE
+    group_by <- NULL
     for (i in seq_along(fields)) {
         field <- field_names[[i]]
         value <- fields[[i]]
@@ -286,6 +287,10 @@ ModelMeta$methods(load_by=function(...) {
             distinct <- value
             next
         }
+        if (!is.null(field) && field == "group by") {
+            group_by <- value
+            next
+        }
         if (previous_is_where) {
             where[[length(where)+1]] <- .self$orm__$LOGICAL_CONNECTORS$AND
         }
@@ -299,6 +304,7 @@ ModelMeta$methods(load_by=function(...) {
     }
     request <- .self$orm__$create_select_request(
         distinct=distinct,
+        group_by=group_by,
         table=.self$table__,
         fields=names(.self$fields__),
         join=join,

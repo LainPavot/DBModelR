@@ -82,8 +82,9 @@ ORM$methods(initialize=function(
             {{table}} (id INTEGER PRIMARY KEY, {{foreign_keys}})
     "
     .self$SELECT_WHERE_TEMPLATE <- "
-        SELECT {{distinct}}{{fields}} FROM {{table}} {{join_clause}} {{where_clause}}
+        SELECT {{distinct}}{{fields}} FROM {{table}} {{join_clause}} {{where_clause}} {{group_by_clause}}
     "
+         # {{limit_clause}}
     .self$DELETE_WHERE_TEMPLATE <- "
         DELETE FROM {{table}} {{where_clause}}
     "
@@ -100,6 +101,10 @@ ORM$methods(initialize=function(
             {{table}} ({{foreign_field}})
     "
 
+    .self$GROUP_BY_TEMPLATE <- "
+        GROUP BY {{group_by}}
+    "
+
     ## let's remove spaces and newlines, those are not usefull
     ## if we want to print the generated queries
     for (field in c(
@@ -109,7 +114,8 @@ ORM$methods(initialize=function(
         "DELETE_WHERE_TEMPLATE",
         "INSERT_WHERE_TEMPLATE",
         "UPDATE_WHERE_TEMPLATE",
-        "FK_CONSTRAINT_TEMPLATE"
+        "FK_CONSTRAINT_TEMPLATE",
+        "GROUP_BY_TEMPLATE"
     )) {
         .self[[field]] <- gsub("\n|(^\\s+)|(\\s+$)", "", .self[[field]])
         .self[[field]] <- gsub("\\s+", " ", .self[[field]])
@@ -692,7 +698,8 @@ ORM$methods(create_table_with_fks_request=function(schema, no_exists=TRUE) {
 })
 
 ORM$methods(create_select_request=function(
-    table="", fields=NULL, join=NULL, where=NULL, distinct=FALSE, additionnal_froms=list()
+    table="", fields=NULL, join=NULL, where=NULL, distinct=FALSE,
+    group_by=NULL, additionnal_froms=list()
 ) {
     "
     Internal method. Do not use.
@@ -715,7 +722,10 @@ ORM$methods(create_select_request=function(
         fields=.self$build_select_fields(fields, table=table),
         join_clause=.self$build_join_clause(join),
         where_clause=.self$build_where_clause(where),
-        distinct=list("", .self$sql$distinct)[[distinct+1]]
+        distinct=(if (distinct) .self$sql$distinct else ""),
+        group_by_clause=.self$build_group_by_clause(group_by)
+        # ,
+        # limit_clause=""
     ))
     return (result)
 })
@@ -918,6 +928,17 @@ ORM$methods(build_where_clause=function(where=NULL, sub=FALSE) {
         result[[length(result)+1]] <- built_clause
     }
     return (paste(result, collapse=" "))
+})
+
+ORM$methods(build_group_by_clause=function(group_by) {
+    if (is.null(group_by)) {
+        return ("")
+    } else {
+        return (.self$fill_template(
+            .self$GROUP_BY_TEMPLATE,
+            group_by=group_by
+        ))
+    }
 })
 
 ORM$methods(build_where_clause_from_list=function(clause) {
