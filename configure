@@ -19,7 +19,7 @@ ${TAB}@\$(R_SCRIPT) "./test_install_package.R"
 
 test${TAB}:
 ${TAB}@echo "Running tests..."
-${TAB}@\$(R_BINARY) -q -e "devtools::test('.')"
+${TAB}@\$(R_BINARY) -q -e "devtools::test('.');warnings()"
 ${TAB}@echo "Finished."
 
 build${TAB}: clean doc
