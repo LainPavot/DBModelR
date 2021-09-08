@@ -474,9 +474,10 @@ if (connected) {
         testthat::expect_equal(adress$length(), 0)
 
         ## let's give him a home
+        strange_street_name <- "Second street ; -- drop table person"
         bob$add_adress(
             ## the orm sanitizes the user's inputs and prevent sql injections.
-            orm$adress(number=42, street="Second street ; -- drop table person")
+            orm$adress(number=42, street=strange_street_name)
         )
         ## The orm detects that the adress object assigned to bob is not saved
         ## yet in the database.
@@ -492,17 +493,17 @@ if (connected) {
             list(paste(
                 "<adress [id: 1]>: ",
                 "[number: 42]",
-                "[street: \"Second street ; -- drop table person\"]",
+                sprintf("[street: \"%s\"]", strange_street_name),
                 "",
                 sep="\n  "
             ))
         )
 
-        ## the street name is still somewat strange...
+        ## the street name is still somewhat strange...
         ## let's make it less strange
         bob$get_adress(
             ## we select the adress with a strange name...
-            street="Second street ; -- drop table person"
+            street=strange_street_name
 
         ## we set a more... usual name. And we save it (the adress).
         )[[1]]$set_street("Second street")$save()
