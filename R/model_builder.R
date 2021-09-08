@@ -14,6 +14,7 @@ FIELDS_CONVERTERS <- list(
     POSIXT=function() return (as.POSIXct),
     FLOAT=function() return (as.numeric),
     REAL=function() return (as.numeric),
+    BOOLEAN=function() return(as.logical),
     BLOB=function() {
         require_blob()
         return (blob::as.blob)
@@ -41,7 +42,7 @@ SQLITE_FIELD_TO_R_TYPE <- list(
     FLOAT=function() return("numeric"),
     REAL=function() return("numeric"),
     POSIXT=function() return("POSIXt"),
-    BOOLEAN=function() return("boolean"),
+    BOOLEAN=function() return("logical"),
     BLOB=function() {
         require_blob()
         return ("blob")
