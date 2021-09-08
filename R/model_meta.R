@@ -132,7 +132,7 @@ setMethod("as.list.default", "ModelMeta", as.list.ModelMeta)
 ModelMeta$methods(initialize=function(...) {
     "\
     "
-    callSuper(...)
+    # callSuper(...)
     .self$modified__ <- list()
     .self$table__ <- "meta"
     .self$fields__ <- list()
@@ -146,6 +146,7 @@ ModelMeta$methods(initialize=function(...) {
         table=.self$table__,
         fields=.self$fields__
     )
+    .self$field_converters__ <- list()
     .self$NOT_CREATED <- -1
     .self$NOT_RETRIEVED <- -2
 })

@@ -58,7 +58,6 @@ get_from_constant_ <- function(field, constant_table) {
         ))
     }
     return (getter())
-
 }
 
 get_converter_for <- function(field) {
@@ -471,7 +470,7 @@ model_builder <- function(model, orm, additional_fields=list(), ...) {
     field_converters <- build_fields_converters_(model$fields)
     methods <- generate_methods_(model, class_name, fields)
     methods[["initialize"]] <- function(...) {
-        # callSuper(...)
+        callSuper(...)
         .self$table__ <- table
         .self$sql_model__ <- model
         .self$model_name__ <- class_name
@@ -481,15 +480,15 @@ model_builder <- function(model, orm, additional_fields=list(), ...) {
         params <- list(...)
         .self$id <- .self$NOT_CREATED
         for(field in names(params)) {
-            .self$modified__[[field]] <- .self[[field]]
+            .self$modified__[[field]] <- get_default_value_for(.self$fields__[[field]])
             .self[[field]] <- (
                 .self$field_converters__[[field]](params[[field]])
             )
         }
     }
     methods$initialize <- inject_local_function_dependencies_(
-        methods$initialize, 2,
-        model$table, model, class_name, orm, field_converters, fields
+        methods$initialize, 3,
+        model$table, model, class_name, orm, field_converters
     )
     generator <- setRefClass(
         class_name,
