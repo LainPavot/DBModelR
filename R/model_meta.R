@@ -76,11 +76,30 @@ ModelMeta$methods(as_data.frame_internal=function(load_one_to_one) {
     ))
 })
 
+ModelMeta$methods(get_value_or_default=function(field) {
+    if (
+        is.null(value <- .self[[field]])
+        || identical(value, character(0))
+        || identical(value, numeric(0))
+    ) {
+        return (DBModelR:::get_default_value_for(.self$fields__[[field]]))
+    } else {
+        return (value)
+    }
+})
+
 ModelMeta$methods(as_given_container=function(container, load_one_to_one, index) {
     orm <- .self$orm__
     models <- orm$model_definitions_
     for (field_name in names(.self$fields__)) {
-        container[index, field_name] <- .self[[field_name]]
+        if (
+            !is.null(value <- .self[[field_name]])
+            && !identical(value, character(0))
+            && !identical(value, numeric(0))
+        ) {
+            container[index, field_name] <- value
+        }
+            # container[index, field_name] <- .self$get_value_or_default(field_name)
     }
     if (!is.null(load_one_to_one)) {
         for (table in load_one_to_one) {
@@ -273,6 +292,7 @@ ModelMeta$methods(load_by=function(...) {
     previous_is_where <- FALSE
     distinct <- FALSE
     group_by <- NULL
+    select <- names(.self$fields__)
     for (i in seq_along(fields)) {
         field <- field_names[[i]]
         value <- fields[[i]]
@@ -308,6 +328,13 @@ ModelMeta$methods(load_by=function(...) {
                     group_by <- value
                     next
                 }
+                if (field == "select") {
+                    if (length(value) == 1) {
+                        value[[2]] <- names(.self$fields__)[[1]]
+                    }
+                    select <- value
+                    next
+                }
             }
         }
         if (previous_is_where) {
@@ -325,7 +352,7 @@ ModelMeta$methods(load_by=function(...) {
         distinct=distinct,
         group_by=group_by,
         table=.self$table__,
-        fields=names(.self$fields__),
+        fields=select,
         join=join,
         where=where,
         additionnal_froms=add_from
@@ -450,13 +477,8 @@ ModelMeta$methods(load_one_from_data__=function(data, row, data_names) {
     "\
     "
     stop("not implemented")
-    # print(data_names)
-    # print(line <- as.list(row)[data_names])
     .self$field(data[row, ])
     # .self[[data_names]] <- data[row, data_names]
-    # print(data[row,])
-    # print(.self$fields__)
-    # print(as.list(.self))
     # for (field in data_names) {
     #     if (.self$fields__[[field]] == "BLOB") {
     #         field <- field[[1]]
