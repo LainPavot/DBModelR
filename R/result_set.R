@@ -16,24 +16,57 @@ setMethod("length", "ResultSet", function(x) {
     return (.self$length__)
 })
 
-setMethod("as.vector", "ResultSet", function(x) {
+#' @method as.vector ResultSet
+#' @param x A ResultSet instance
+#' @export
+as.vector.ResultSet <- function(x) {
     .self <- selectMethod("$", "envRefClass")(x, ".self")
     return (as.vector(.self$result_set__))
-})
+}
+setMethod("as.vector", "ResultSet", as.vector.ResultSet)
+
+#' @method as.character ResultSet
+#' @param x A ResultSet instance
+#' @export
+as.character.ResultSet <- function(x) {
+    .self <- selectMethod("$", "envRefClass")(x, ".self")
+    return (as.character(.self$result_set__))
+}
+setMethod("as.character", "ResultSet", as.character.ResultSet)
+invisible(setMethod("as.character.default", "ResultSet", as.character.ResultSet))
+
+#' @method print ResultSet
+#' @param x A ResultSet instance
+#' @export
+print.ResultSet <- function(x) {
+    .self <- selectMethod("$", "envRefClass")(x, ".self")
+    return (print(.self$result_set__))
+}
+setMethod("print", "ResultSet", print.ResultSet)
+invisible(setMethod("print.default", "ResultSet", print.ResultSet))
+
 
 #' @method as.list ResultSet
+#' @param x A ResultSet instance
 #' @export
-as.list.ResultSet <- function(x) {
+as.list.ResultSet <- function(x, ...) {
     .self <- selectMethod("$", "envRefClass")(x, ".self")
-    return (x$result_set__)
+    return (.self$result_set__)
 }
 setMethod("as.list", "ResultSet", as.list.ResultSet)
-setMethod("as.list.default", "ResultSet", as.list.ResultSet)
+invisible(setMethod("as.list.default", "ResultSet", as.list.ResultSet))
 
 
 #' @method as.data.frame ResultSet
+#' @param x A ResultSet instance
 #' @export
-as.data.frame.ResultSet <- function(x, load_one_to_one=NULL) {
+as.data.frame.ResultSet <- function(
+    x,
+    row.names=NULL,
+    optional=NULL,
+    load_one_to_one=NULL,
+    ...
+) {
     .self <- selectMethod("$", "envRefClass")(x, ".self")
     if (is.null(first <- .self$first())) {
         return (data.frame())
@@ -42,11 +75,12 @@ as.data.frame.ResultSet <- function(x, load_one_to_one=NULL) {
     return (.self$as_given_container(data.frame(), field_names, load_one_to_one))
 }
 setMethod("as.data.frame", "ResultSet", as.data.frame.ResultSet)
-setMethod("as.data.frame.default", "ResultSet", as.data.frame.ResultSet)
+invisible(setMethod("as.data.frame.default", "ResultSet", as.data.frame.ResultSet))
 
 #' @method as.matrix ResultSet
+#' @param x A ResultSet instance
 #' @export
-as.matrix.ResultSet <- function(x, load_one_to_one=NULL) {
+as.matrix.ResultSet <- function(x, load_one_to_one=NULL, ...) {
     .self <- selectMethod("$", "envRefClass")(x, ".self")
     if (is.null(first <- .self$first())) {
         return (matrix())
@@ -60,7 +94,7 @@ as.matrix.ResultSet <- function(x, load_one_to_one=NULL) {
     return (.self$as_given_container(result_matrix, field_names, load_one_to_one))
 }
 setMethod("as.matrix", "ResultSet", as.matrix.ResultSet)
-setMethod("as.matrix.default", "ResultSet", as.matrix.ResultSet)
+invisible(setMethod("as.matrix.default", "ResultSet", as.matrix.ResultSet))
 
 ResultSet$methods(get_field_names=function(model, with_foreign=NULL) {
     orm <- model$orm__
@@ -71,7 +105,7 @@ ResultSet$methods(get_field_names=function(model, with_foreign=NULL) {
             sub_fields <- names(models[[table]]$fields)
             field_names <- c(
                 field_names,
-                map(sub_fields, function(field) {
+                lapply(sub_fields, function(field) {
                     return (sprintf("%s_%s", table, field))
                 })
             )
@@ -127,7 +161,7 @@ ResultSet$methods(delete=function() {
                 orm$where_clause(
                     field=first_model$table_field("id"),
                     operator=orm$OPERATORS$IN,
-                    value=map(.self$result_set__, function(x) x$get_id())
+                    value=lapply(.self$result_set__, function(x) x$get_id())
                 )
             )
         ))

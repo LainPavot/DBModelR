@@ -103,3 +103,45 @@ ModelDefinition$methods(initialize=function(
         .self$fields[[paste0(table, "_id")]] <- "INTEGER"
     }
 })
+
+ModelDefinition$methods(as.character=function() {
+    "\
+    "
+    field_names <- names(.self$fields)
+    field_names <- field_names[
+        which(!(field_names %in% c(sprintf("%s_id", .self$one), "id")))
+    ]
+    template <- paste(
+        "DBModelR::ModelDefinition(",
+        "  table=\"%s\",",
+        "  fields=list(",
+        "    %s",
+        "  ),",
+        "  one=list(",
+        "    %s",
+        "  ),",
+        "  many=list(",
+        "    %s",
+        "  ),",
+        "  defaults=list(",
+        "    %s",
+        "  )",
+        ")",
+        sep="\n"
+    )
+    return (sprintf(
+        template,
+        .self$table,
+        paste(
+            sprintf("%s=\"%s\"", field_names, .self$fields[field_names]),
+            collapse=",\n    "
+        ),
+        paste(sprintf("\"%s\"", .self$one), collapse=",\n    "),
+        paste(sprintf("\"%s\"", .self$many), collapse=",\n    "),
+        paste(
+            sprintf("%s=\"%s\"", names(.self$defaults), .self$defaults),
+            collapse=",\n    "
+        )
+    ))
+})
+

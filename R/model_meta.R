@@ -25,7 +25,7 @@ setMethod("==", signature("ModelMeta", "ModelMeta"), function(e1, e2) {
 
 #' @method as.matrix ModelMeta
 #' @export
-as.matrix.ModelMeta <- function(x, load_one_to_one=NULL) {
+as.matrix.ModelMeta <- function(x, load_one_to_one=NULL, ...) {
     .self <- selectMethod("$", "envRefClass")(x, ".self")
     orm <- .self$orm__
     field_names <- names(.self$fields__)
@@ -46,7 +46,14 @@ as.matrix.ModelMeta <- function(x, load_one_to_one=NULL) {
     ))
 }
 setMethod("as.matrix", "ModelMeta", as.matrix.ModelMeta)
-setMethod("as.matrix.default", "ModelMeta", as.matrix.ModelMeta)
+invisible(setMethod("as.matrix.default", "ModelMeta", as.matrix.ModelMeta))
+
+as.character.ModelMeta <- function(x, ...) {
+    .self <- selectMethod("$", "envRefClass")(x, ".self")
+    return (.self$as.character())
+}
+setMethod("as.character", "ModelMeta", as.character.ModelMeta)
+invisible(setMethod("as.character.default", "ModelMeta", as.character.ModelMeta))
 
 ModelMeta$methods(as_matrix_internal=function(field_names, load_one_to_one, orm) {
     return (.self$as_given_container(
@@ -61,12 +68,18 @@ ModelMeta$methods(as_matrix_internal=function(field_names, load_one_to_one, orm)
 
 #' @method as.data.frame ModelMeta
 #' @export
-as.data.frame.ModelMeta <- function(x, load_one_to_one=NULL) {
+as.data.frame.ModelMeta <- function(
+    x,
+    row.names=NULL,
+    optional=NULL,
+    load_one_to_one=NULL,
+    ...
+) {
     .self <- selectMethod("$", "envRefClass")(x, ".self")
     return (.self$as_data.frame_internal(load_one_to_one))
 }
 setMethod("as.data.frame", "ModelMeta", as.data.frame.ModelMeta)
-setMethod("as.data.frame.default", "ModelMeta", as.data.frame.ModelMeta)
+invisible(setMethod("as.data.frame.default", "ModelMeta", as.data.frame.ModelMeta))
 
 ModelMeta$methods(as_data.frame_internal=function(load_one_to_one) {
     return (.self$as_given_container(
@@ -82,7 +95,7 @@ ModelMeta$methods(get_value_or_default=function(field) {
         || identical(value, character(0))
         || identical(value, numeric(0))
     ) {
-        return (DBModelR:::get_default_value_for(.self$fields__[[field]]))
+        return (.self$get_default_value_for(field))
     } else {
         return (value)
     }
@@ -136,7 +149,7 @@ ModelMeta$methods(as_given_container=function(container, load_one_to_one, index)
 
 #' @method as.list ModelMeta
 #' @export
-as.list.ModelMeta <- function(x, fields=NULL) {
+as.list.ModelMeta <- function(x, fields=NULL, ...) {
     .self <- selectMethod("$", "envRefClass")(x, ".self")
     if (is.null(fields)) {
         fields <- names(.self$fields__)
@@ -146,7 +159,7 @@ as.list.ModelMeta <- function(x, fields=NULL) {
     return (result)
 }
 setMethod("as.list", "ModelMeta", as.list.ModelMeta)
-setMethod("as.list.default", "ModelMeta", as.list.ModelMeta)
+invisible(setMethod("as.list.default", "ModelMeta", as.list.ModelMeta))
 
 ModelMeta$methods(initialize=function(...) {
     "\

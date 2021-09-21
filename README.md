@@ -22,11 +22,7 @@ devtools::install\_github(“LainPavot/DBModelR”)
 ``` r
 library("RSQLite")
 library("DBModelR")
-```
 
-    ## Loading required package: purrr
-
-``` r
 models <- list(
     person=ModelDefinition(
         table="person",
@@ -82,15 +78,11 @@ alice <- orm$person(name="Alice", family_name="smith")$save()
 print(orm$person()$load_by(name="Alice"))
 ```
 
-    ## Reference class object of class "ResultSet"
-    ## Field "result_set__":
     ## [[1]]
     ## <person [id: 1]>: 
     ##   [name: "Alice"]
     ##   [family_name: "smith"]
-    ##   
-    ## Field "length__":
-    ## [1] 1
+    ## 
 
 ``` r
 ## The id is 1, because it's the first person to be inserted into the
@@ -121,11 +113,7 @@ print(bob$get_id())
 print(bob$get_adress())
 ```
 
-    ## Reference class object of class "ResultSet"
-    ## Field "result_set__":
     ## list()
-    ## Field "length__":
-    ## [1] 0
 
 ``` r
 ## let's give him a home
@@ -159,15 +147,11 @@ bob$save()
 print(adress <- bob$get_adress())
 ```
 
-    ## Reference class object of class "ResultSet"
-    ## Field "result_set__":
     ## [[1]]
     ## <adress [id: 1]>: 
     ##   [number: 42]
     ##   [street: "Second street ; -- drop table person"]
-    ##   
-    ## Field "length__":
-    ## [1] 1
+    ## 
 
 ``` r
 ## the street name is still somewat strange...
@@ -189,15 +173,11 @@ bob$get_adress(
 print(bob$get_adress())
 ```
 
-    ## Reference class object of class "ResultSet"
-    ## Field "result_set__":
     ## [[1]]
     ## <adress [id: 1]>: 
     ##   [number: 42]
     ##   [street: "Second street"]
-    ##   
-    ## Field "length__":
-    ## [1] 1
+    ## 
 
 ``` r
 ## never forget to disconnect when your're finished!
@@ -230,8 +210,6 @@ orm$with_connection({
 })
 ```
 
-    ## Reference class object of class "ResultSet"
-    ## Field "result_set__":
     ## [[1]]
     ## <adress [id: 1]>: 
     ##   [number: 42]
@@ -242,36 +220,22 @@ orm$with_connection({
     ##   [number: 2]
     ##   [street: "the squirel's path"]
     ##   
-    ## Field "length__":
-    ## [1] 2
-    ## Reference class object of class "ResultSet"
-    ## Field "result_set__":
     ## [[1]]
     ## <adress [id: 1]>: 
     ##   [number: 42]
     ##   [street: "Second street"]
     ##   
-    ## Field "length__":
-    ## [1] 1
-    ## Reference class object of class "ResultSet"
-    ## Field "result_set__":
     ## [[1]]
     ## <adress [id: 2]>: 
     ##   [number: 2]
     ##   [street: "the squirel's path"]
-    ##   
-    ## Field "length__":
-    ## [1] 1
+    ## 
 
-    ## Reference class object of class "ResultSet"
-    ## Field "result_set__":
     ## [[1]]
     ## <adress [id: 2]>: 
     ##   [number: 2]
     ##   [street: "the squirel's path"]
-    ##   
-    ## Field "length__":
-    ## [1] 1
+    ## 
 
 ``` r
 ## now, you're disconnected from the database.

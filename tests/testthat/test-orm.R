@@ -95,18 +95,20 @@ if (connected) {
     })
 
     requests <- do.call(c, lapply(orm$create_database(), as.vector))
+    expected <- c(
+        "CREATE TABLE  adduct (id INTEGER PRIMARY KEY, name TEXT, mass FLOAT, charge INTEGER, multi INTEGER, formula_add TEXT, formula_ded TEXT, sign TEXT, oidscore INTEGER, quasi INTEGER, ips FLOAT)",
+        "CREATE TABLE  cluster_feature (id INTEGER PRIMARY KEY, cluster_id INTEGER, feature_id INTEGER, FOREIGN KEY (feature_id) REFERENCES feature (id), FOREIGN KEY (cluster_id) REFERENCES cluster (id))",
+        "CREATE TABLE  cluster (id INTEGER PRIMARY KEY, formula TEXT, annotation TEXT, coeff REAL, r_squared REAL, charge INTEGER, mean_rt REAL, score REAL, deviation REAL, status TEXT, adduct TEXT, curent_group INTEGER, pc_group INTEGER, align_group INTEGER, xcms_group INTEGER, sample_id INTEGER, compound_id INTEGER, FOREIGN KEY (sample_id) REFERENCES sample (id), FOREIGN KEY (compound_id) REFERENCES compound (id))",
+        "CREATE TABLE  compound (id INTEGER PRIMARY KEY, name TEXT, common_name TEXT, formula TEXT, charge INTEGER, date TEXT, mz REAL)",
+        "CREATE TABLE  feature (id INTEGER PRIMARY KEY, mz FLOAT, mz_min FLOAT, mz_max FLOAT, rt FLOAT, rt_min FLOAT, rt_max FLOAT, int_o FLOAT, int_b FLOAT, max_o FLOAT, iso TEXT, abundance FLOAT)",
+        "CREATE TABLE  instrument_config (id INTEGER PRIMARY KEY, resolution TEXT, agc_target TEXT, maximum_IT TEXT, number_of_scan_range TEXT, scan_range TEXT, version TEXT)",
+        "CREATE TABLE  instrument (id INTEGER PRIMARY KEY, model TEXT, manufacturer TEXT, analyzer TEXT, dector_type TEXT)",
+        "CREATE TABLE  sample (id INTEGER PRIMARY KEY, name TEXT, path TEXT, raw_path TEXT, polarity TEXT, raw BLOB, instrument_id INTEGER, instrument_config_id INTEGER, software_id INTEGER, FOREIGN KEY (instrument_id) REFERENCES instrument (id), FOREIGN KEY (instrument_config_id) REFERENCES instrument_config (id), FOREIGN KEY (software_id) REFERENCES software (id))",
+        "CREATE TABLE  software (id INTEGER PRIMARY KEY, name TEXT, version TEXT)"
+    )
+    expected <- expected[order(expected)]
     testthat::test_that("ORM schema generation", {
-        testthat::expect_equal(requests[order(requests)], c(
-            "CREATE TABLE  adduct (id INTEGER PRIMARY KEY, name TEXT, mass FLOAT, charge INTEGER, multi INTEGER, formula_add TEXT, formula_ded TEXT, sign TEXT, oidscore INTEGER, quasi INTEGER, ips FLOAT)",
-            "CREATE TABLE  cluster_feature (id INTEGER PRIMARY KEY, cluster_id INTEGER, feature_id INTEGER, FOREIGN KEY (feature_id) REFERENCES feature (id), FOREIGN KEY (cluster_id) REFERENCES cluster (id))",
-            "CREATE TABLE  cluster (id INTEGER PRIMARY KEY, formula TEXT, annotation TEXT, coeff REAL, r_squared REAL, charge INTEGER, mean_rt REAL, score REAL, deviation REAL, status TEXT, adduct TEXT, curent_group INTEGER, pc_group INTEGER, align_group INTEGER, xcms_group INTEGER, sample_id INTEGER, compound_id INTEGER, FOREIGN KEY (sample_id) REFERENCES sample (id), FOREIGN KEY (compound_id) REFERENCES compound (id))",
-            "CREATE TABLE  compound (id INTEGER PRIMARY KEY, name TEXT, common_name TEXT, formula TEXT, charge INTEGER, date TEXT, mz REAL)",
-            "CREATE TABLE  feature (id INTEGER PRIMARY KEY, mz FLOAT, mz_min FLOAT, mz_max FLOAT, rt FLOAT, rt_min FLOAT, rt_max FLOAT, int_o FLOAT, int_b FLOAT, max_o FLOAT, iso TEXT, abundance FLOAT)",
-            "CREATE TABLE  instrument_config (id INTEGER PRIMARY KEY, resolution TEXT, agc_target TEXT, maximum_IT TEXT, number_of_scan_range TEXT, scan_range TEXT, version TEXT)",
-            "CREATE TABLE  instrument (id INTEGER PRIMARY KEY, model TEXT, manufacturer TEXT, analyzer TEXT, dector_type TEXT)",
-            "CREATE TABLE  sample (id INTEGER PRIMARY KEY, name TEXT, path TEXT, raw_path TEXT, polarity TEXT, raw BLOB, instrument_id INTEGER, instrument_config_id INTEGER, software_id INTEGER, FOREIGN KEY (instrument_id) REFERENCES instrument (id), FOREIGN KEY (instrument_config_id) REFERENCES instrument_config (id), FOREIGN KEY (software_id) REFERENCES software (id))",
-            "CREATE TABLE  software (id INTEGER PRIMARY KEY, name TEXT, version TEXT)"
-        ))
+        testthat::expect_equal(requests[order(requests)], expected)
     })
 
     tribromophenol <- orm$compound(
@@ -158,6 +160,25 @@ if (connected) {
         testthat::expect_equal(
             dichlorophenol$save(return_request=TRUE),
             "INSERT INTO compound (name, common_name, formula, charge, date, mz) VALUES ('Dichlorophenol', 'Dichlorophenol', 'C6H4Cl2O1', 0, '2017-09-01', 161.963920168) "
+        )
+    })
+
+    testthat::test_that("ORM result set conversion methods", {
+        result <- capture.output(print(orm$compound()$load_by(name="Tribromophenol")))
+        testthat::expect_equal(
+            result,
+            c(
+                '[[1]]',
+                '<compound [id: 1]>: ',
+                '  [name: "Tribromophenol"]',
+                '  [common_name: "Tribromophenol"]',
+                '  [formula: "C6H3Br3O1"]',
+                '  [charge: 0]',
+                '  [date: "2017-09-01"]',
+                '  [mz: 329.771356516]',
+                '  '
+            )
+
         )
     })
 

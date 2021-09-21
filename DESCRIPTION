@@ -22,16 +22,17 @@ Imports:
     DBI,
     methods
 Depends:
-    R (>= 3.0),
-    purrr
+    R (>= 3.0)
 Suggests:
     RSQLite,
     testthat,
     knitr,
     blob,
+    Cairo,
+    qpdf,
     rmarkdown
 VignetteBuilder: knitr
-Collate: 
+Collate:
     'class_definitions.R'
     'result_set.R'
     'model_builder.R'
