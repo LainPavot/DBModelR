@@ -62,7 +62,8 @@ ModelDefinition <- setRefClass(
         table="character",
         fields="list",
         many="list",
-        one="list"
+        one="list",
+        defaults="list"
     )
 )
 
@@ -258,7 +259,8 @@ ModelMeta <- setRefClass(
         NOT_CREATED="numeric",
         NOT_RETRIEVED="numeric",
         id="numeric",
-        field_converters__="list"
+        field_converters__="list",
+        defaults="list"
     )
 )
 

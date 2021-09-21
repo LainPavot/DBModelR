@@ -1,7 +1,7 @@
 
 
 require_blob <- function() {
-    if (!require("blob", quietly=TRUE)) {
+    if (!requireNamespace("blob", quietly=TRUE)) {
         stop("You need to install the package \"blob\" to uses this type")
     }
 }
@@ -471,17 +471,17 @@ model_builder <- function(model, orm, additional_fields=list(), ...) {
     methods <- generate_methods_(model, class_name, fields)
     methods[["initialize"]] <- function(...) {
         callSuper(...)
-        .self$table__ <- table
         .self$sql_model__ <- model
         .self$model_name__ <- class_name
         .self$orm__ <- orm
         .self$field_converters__ <- field_converters
-        get_default_value_for <- get_default_value_for
+        .self$table__ <- .self$sql_model__$table
+        .self$defaults <- .self$sql_model__$defaults
         .self$fields__ <- .self$sql_model__$fields
         params <- list(...)
         .self$id <- .self$NOT_CREATED
         for(field in names(params)) {
-            .self$modified__[[field]] <- get_default_value_for(.self$fields__[[field]])
+            .self$modified__[[field]] <- .self$get_default_value_for(field)
             .self[[field]] <- (
                 .self$field_converters__[[field]](params[[field]])
             )
@@ -489,12 +489,10 @@ model_builder <- function(model, orm, additional_fields=list(), ...) {
     }
     methods$initialize <- inject_local_function_dependencies_(
         methods$initialize, 3,
-        model$table,
         model,
         class_name,
         orm,
-        field_converters,
-        get_default_value_for
+        field_converters
     )
     generator <- setRefClass(
         class_name,

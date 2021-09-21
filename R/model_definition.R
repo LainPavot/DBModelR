@@ -44,7 +44,8 @@ ModelDefinition$methods(initialize=function(
     table="unknown",
     fields=list(),
     many=list(),
-    one=list()
+    one=list(),
+    defaults=list()
 ) {
     ## The regex in this methods never use the [A-Z] range because
     ## grepl must use the ignore.case systematically
@@ -98,6 +99,7 @@ ModelDefinition$methods(initialize=function(
     .self$fields <- fields
     .self$many <- many
     .self$one <- one
+    .self$defaults <- defaults
     .self$fields$id <- "INTEGER"
     for(table in one) {
         .self$fields[[paste0(table, "_id")]] <- "INTEGER"

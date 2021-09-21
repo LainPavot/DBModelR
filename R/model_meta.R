@@ -168,6 +168,7 @@ ModelMeta$methods(initialize=function(...) {
     .self$modified__ <- list()
     .self$table__ <- "meta"
     .self$fields__ <- list()
+    .self$defaults <- list()
     .self$model_name__ <- "ModelMeta"
     .self$orm__ <- DBModelR::ORM()
     .self$loaded__ <- FALSE
@@ -343,7 +344,11 @@ ModelMeta$methods(load_by=function(...) {
                 }
                 if (field == "select") {
                     if (length(value) == 1) {
-                        value[[2]] <- names(.self$fields__)[[1]]
+                        second <- names(.self$fields__)[[1]]
+                        if (second == value[[1]]) {
+                            second <- names(.self$fields__)[[2]]
+                        }
+                        value[[2]] <- second
                     }
                     select <- value
                     next
@@ -523,7 +528,7 @@ ModelMeta$methods(save=function(bulk=list(), return_request=FALSE) {
                     is.null(value)
                     || identical(value, character(0))
                     || identical(value, numeric(0))
-                ) get_default_value_for(.self$fields__[[field]])
+                ) .self$get_default_value_for(field)
                 else value
             }, field_names, SIMPLIFY=FALSE))
             request <- orm$create_insert_request(
@@ -738,4 +743,11 @@ ModelMeta$methods(create_link_to_=function(other) {
     )
     .self$orm__$clear_result(.self$orm__$send_statement(request))
     return (request)
+})
+
+ModelMeta$methods(get_default_value_for=function(field) {
+    if (!is.null(result <- .self$defaults[[field]])) {
+        return (result)
+    }
+    return (DBModelR:::get_default_value_for(.self$fields__[[field]]))
 })
