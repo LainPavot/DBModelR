@@ -482,9 +482,13 @@ model_builder <- function(model, orm, additional_fields=list(), ...) {
         .self$id <- .self$NOT_CREATED
         for(field in names(params)) {
             .self$modified__[[field]] <- .self$get_default_value_for(field)
-            .self[[field]] <- (
-                .self$field_converters__[[field]](params[[field]])
-            )
+            tryCatch({
+                .self[[field]] <- .self$field_converters__[[field]](
+                    params[[field]]
+                )
+            }, error=function(e) {
+                .self$modified__[[field]] <- NULL
+            })
         }
     }
     methods$initialize <- inject_local_function_dependencies_(

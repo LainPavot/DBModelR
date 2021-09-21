@@ -82,16 +82,24 @@ invisible(setMethod("as.data.frame.default", "ResultSet", as.data.frame.ResultSe
 #' @export
 as.matrix.ResultSet <- function(x, load_one_to_one=NULL, ...) {
     .self <- selectMethod("$", "envRefClass")(x, ".self")
-    if (is.null(first <- .self$first())) {
-        return (matrix())
+    if (!.self$df_built__) {
+        if (is.null(first <- .self$first())) {
+            return (matrix())
+        }
+        field_names <- .self$get_field_names(first, with_foreign=load_one_to_one)
+        result_matrix <- matrix(
+            nrow=.self$length(),
+            ncol=length(field_names),
+            dimnames=list(list(), field_names)
+        )
+        .self$df_cache__ <- .self$as_given_container(
+            result_matrix,
+            field_names,
+            load_one_to_one
+        )
+        .self$df_built__ <- TRUE
     }
-    field_names <- .self$get_field_names(first, with_foreign=load_one_to_one)
-    result_matrix <- matrix(
-        nrow=.self$length(),
-        ncol=length(field_names),
-        dimnames=list(list(), field_names)
-    )
-    return (.self$as_given_container(result_matrix, field_names, load_one_to_one))
+    return (.self$df_cache__)
 }
 setMethod("as.matrix", "ResultSet", as.matrix.ResultSet)
 invisible(setMethod("as.matrix.default", "ResultSet", as.matrix.ResultSet))
@@ -125,9 +133,13 @@ ResultSet$methods(as_given_container=function(
     return (container)
 })
 
-ResultSet$methods(initialize=function(results=NULL) {
+ResultSet$methods(initialize=function(results=NULL, original_df=NULL) {
     .self$result_set__ <- (if (is.null(results)) list() else results)
     .self$length__ <- base::length(.self$result_set__)
+    .self$df_built__ <- !is.null(original_df)
+    if (.self$df_built__) {
+        .self$df_cache__ <- original_df
+    }
 })
 
 ResultSet$methods(length=function() {

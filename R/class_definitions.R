@@ -315,7 +315,9 @@ ResultSet <- setRefClass(
     "ResultSet",
     fields=c(
         result_set__="list",
-        length__="numeric"
+        length__="numeric",
+        df_built__="logical",
+        df_cache__="data.frame"
     )
 )
 

@@ -295,9 +295,19 @@ ModelMeta$methods(load=function(id){
 })
 
 
+ModelMeta$methods(load_dataframe_by=function(...) {
+    request <- .self$build_load_request_from(...)
+    return (.self$orm__$get_query(request))
+})
+
 ModelMeta$methods(load_by=function(...) {
     "\
     "
+    request <- .self$build_load_request_from(...)
+    return (.self$load_from_request__(request))
+})
+
+ModelMeta$methods(build_load_request_from=function(...) {
     fields <- list(...)
     where <- list()
     add_from <- list()
@@ -375,7 +385,7 @@ ModelMeta$methods(load_by=function(...) {
         where=where,
         additionnal_froms=add_from
     )
-    return (.self$load_from_request__(request))
+    return (request)
 })
 
 ModelMeta$methods(create_where_clause=function(field, value) {
@@ -476,7 +486,10 @@ ModelMeta$methods(load_from_request__=function(request) {
     if (nrow(rs) == 0) {
         return (DBModelR::ResultSet())
     }
-    return (DBModelR::ResultSet(results=.self$load_multiple_from_data__(rs)))
+    return (DBModelR::ResultSet(
+        results=.self$load_multiple_from_data__(rs),
+        original_df=rs
+    ))
 })
 
 

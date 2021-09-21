@@ -754,6 +754,15 @@ ORM$methods(create_delete_request=function(table="",  where=NULL) {
     return (result)
 })
 
+ORM$methods(save_from_df=function(table, df) {
+  request <- .self$create_insert_request(
+      table=table,
+      fields=colnames(df),
+      values=df
+  )
+  .self$clear_result(.self$send_statement(request))
+})
+
 ORM$methods(create_insert_request=function(
     table="", fields=NULL, values=NULL, where=NULL
 ) {
@@ -822,6 +831,9 @@ ORM$methods(build_insert_values=function(values=NULL, imbricated=FALSE) {
             .self$build_insert_values(values)
         }))
     } else {
+        if (is.data.frame(values)) {
+            return (.self$build_insert_values_from_df(values))
+        }
         if (imbricated || !is(values[[1]], "list") || is(values[[1]], "blob")) {
             mapper <- function(x) {
                 if (is(x, "list") && !is(x, "blob")) {
@@ -849,6 +861,19 @@ ORM$methods(build_insert_values=function(values=NULL, imbricated=FALSE) {
     }
     values <- lapply(values, mapper)
     return (sprintf("(%s)", do.call(paste, list(values, collapse=", "))))
+})
+
+ORM$methods(build_insert_values_from_df=function(df) {
+    values_as_lists <- lapply(seq_len(nrow(df)), function(y) {
+        return (sprintf(
+            "(%s)",
+            paste(
+                .self$escape(unlist(unname(df[y, , drop=TRUE]))),
+                collapse=", "
+            )
+        ))
+    })
+    return (paste(values_as_lists, collapse=", "))
 })
 
 ORM$methods(build_select_fields=function(fields, table=NULL) {
