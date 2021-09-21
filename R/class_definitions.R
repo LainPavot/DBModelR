@@ -1,6 +1,5 @@
 #'
 #' @importFrom methods new selectMethod setRefClass is
-#' @importFrom purrr map
 #' @import DBI
 NULL
 

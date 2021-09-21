@@ -145,7 +145,7 @@ ORM$methods(models=function(models=NULL) {
             )) != length(.self$model_definitions_)
         ) {
             names(.self$model_definitions_) <- (
-                purrr::map(.self$model_definitions_, function(x)x$table)
+                lapply(.self$model_definitions_, function(x)x$table)
             )
         }
         .self$model_objects_ <- list()
@@ -154,25 +154,29 @@ ORM$methods(models=function(models=NULL) {
                 definition, .self
             )
             for(relation in definition$many) {
-                    if (definition$table < relation) {
-                        a <- definition$table
-                        b <- relation
-                    } else {
-                        b <- definition$table
-                        a <- relation
-                    }
-                    link_table_name <- sprintf("%s_%s", a, b)
-                    .self$model_objects_[[link_table_name]] <- model_builder(
-                        ModelDefinition(
-                            table=link_table_name,
-                            fields=list(),
-                            one=list(a, b)
-                        ), .self
-                    )
+                ordered_tables <- .self$get_ordered_tables(
+                    definition$table, relation
+                )
+                link_table_name <- sprintf(
+                    "%s_%s",
+                    ordered_tables[[1]],
+                    ordered_tables[[2]]
+                )
+                .self$model_objects_[[link_table_name]] <- model_builder(
+                    ModelDefinition(
+                        table=link_table_name,
+                        fields=list(),
+                        one=ordered_tables
+                    ), .self
+                )
             }
         }
     }
     return (.self$model_objects_)
+})
+
+ORM$methods(get_ordered_tables=function(...) {
+    return (list(...)[order(c(...))])
 })
 
 ORM$methods(set_dbms=function(dbms) {
@@ -205,6 +209,7 @@ ORM$methods(is_connected=function() {
     "
     return (
         !is.null(.self$connection_) &&
+        !identical(names(.self$dbms_env), character(0)) &&
         .self$dbms_env[["dbIsValid"]](.self$connection_)
     )
 })
@@ -688,7 +693,7 @@ ORM$methods(create_table_with_fks_request=function(schema, no_exists=TRUE) {
     Create the request string for the given model (must have one/some fks).
     May disapear or change quickly. Don't rely on it.
     "
-    fk_constraints <- paste(map(
+    fk_constraints <- paste(lapply(
         schema$one, .self$build_fk_constraint
     ), collapse=", ")
     fields <- build_fields_declaration(schema)
@@ -787,7 +792,7 @@ ORM$methods(create_update_request=function(
         stop("Cannot update a table with no given values.")
     }
     fields <- names(values)
-    update_values <- paste(map(seq_along(fields), function(x){
+    update_values <- paste(lapply(seq_along(fields), function(x){
         sprintf("%s = %s", fields[[x]], .self$escape(
             if (is(values[[x]], "ModelMeta")) values[[x]]$get_id()
             else values[[x]]
@@ -838,11 +843,11 @@ ORM$methods(build_insert_values=function(values=NULL, imbricated=FALSE) {
                 }
                 return (.self$build_insert_values(x, imbricated=TRUE))
             }
-            values <- map(values, mapper)
+            values <- lapply(values, mapper)
             return (do.call(paste, list(values, collapse=", ")))
         }
     }
-    values <- map(values, mapper)
+    values <- lapply(values, mapper)
     return (sprintf("(%s)", do.call(paste, list(values, collapse=", "))))
 })
 
@@ -857,7 +862,7 @@ ORM$methods(build_select_fields=function(fields, table=NULL) {
     }
     if (is.null(table) || table == "") {
         return (do.call(paste, list(
-            purrr::map(fields, function(x) {
+            lapply(fields, function(x) {
                 if (is(x, "TableField")) {
                     return (x$as.request())
                 } else {
@@ -866,7 +871,7 @@ ORM$methods(build_select_fields=function(fields, table=NULL) {
             }), collapse=", ")))
     } else {
         return (do.call(paste, list(
-            purrr::map(fields, function(x) {
+            lapply(fields, function(x) {
                 if (is(x, "TableField")) {
                     return (x$as.request())
                 } else {
@@ -955,7 +960,7 @@ ORM$methods(build_where_clause_from_list=function(clause) {
     }
     if (is.list(clause$value)) {
         escaped_value <- sprintf("(%s)", paste(
-            map(clause$value, .self$escape),
+            lapply(clause$value, .self$escape),
             collapse=", "
         ))
     } else {
@@ -972,7 +977,7 @@ ORM$methods(build_join_clause=function(join=NULL) {
     if (is.null(join) || length(join) == 0) {
         return ("")
     }
-    return (paste(map(join, function(x){x$as.request()}), collapse=" "))
+    return (paste(lapply(join, function(x){x$as.request()}), collapse=" "))
 })
 
 ORM$methods(fill_template=function(template, ...) {
@@ -1152,13 +1157,13 @@ WhereClause$methods(initialize=function(
             ))
         }
         if (is(value, "ResultSet")) {
-            new_value <- map(as.vector(value), function(model) {model$get_id()})
+            new_value <- lapply(as.vector(value), function(model) {model$get_id()})
         } else {
             new_value <- value
         }
         if (is.list(new_value) || is.vector(new_value)) {
             .self$value <- sprintf(
-                "(%s)", paste(map(new_value, orm$escape), collapse=", ")
+                "(%s)", paste(lapply(new_value, orm$escape), collapse=", ")
             )
         }
     }
