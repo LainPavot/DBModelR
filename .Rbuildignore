@@ -19,3 +19,4 @@
 ^man/\.gitignore$
 ^DBModelR_\d+\.\d+\.\d+\.tar\.gz$
 ^CRAN-RELEASE$
+^meta.yaml$

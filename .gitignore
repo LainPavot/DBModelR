@@ -3,3 +3,4 @@
 /Makefile
 DBModelR*.tar.gz
 /CRAN-RELEASE
+/DBModelR.Rcheck/
