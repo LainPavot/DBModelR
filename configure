@@ -1,10 +1,12 @@
 #!/bin/sh
 
-HOME="$(realpath ~)"
-R_DIRECTORY="${HOME}/R"
 TAB="$(printf '\t')"
 
-R_DIRECTORY="${HOME}/Downloads/R-4.0.3"
+
+if [ -z ${R_DIRECTORY+x} ]; then
+    HOME="$(realpath ~)"
+    R_DIRECTORY="${HOME}/R"
+fi
 
 cat > ./Makefile << EOF
 
@@ -14,6 +16,9 @@ R_SCRIPT="\$(R_BASE)/bin/Rscript"
 export R_USER=\$(USER)
 
 all${TAB}${TAB}: test
+
+install_deps${TAB}${TAB}:
+${TAB}@\$(R_SCRIPT) ./install_deps.R
 
 install${TAB}:
 ${TAB}@\$(R_SCRIPT) "./test_install_package.R"
