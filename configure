@@ -1,0 +1,74 @@
+#!/bin/sh
+
+TAB="$(printf '\t')"
+CWD=$(pwd)
+
+
+if [ -z ${R_DIR+x} ]; then
+  if [ -f "./.default_R_path" ]; then
+    R_DIR=`cat .default_R_path`
+  else
+    R_DIR="$(realpath ~)/R"
+  fi
+fi
+
+if [ -z ${R_BINARY+x} ]; then
+  R_BINARY="${R_DIR}/bin/R"
+fi
+
+if [ -z ${R_SCRIPT+x} ]; then
+  R_SCRIPT="${R_DIR}/bin/Rscript"
+fi
+
+cat > ./Makefile << EOF
+
+R_BINARY=${R_BINARY}
+R_SCRIPT=${R_SCRIPT}
+EXEC_R=${R_BINARY} -q -e
+R_CMD=${R_BINARY} CMD
+
+all${TAB}${TAB}: check
+
+install_deps:
+${TAB}@\$(R_SCRIPT) ./install_deps.R
+
+clean${TAB}:
+${TAB}@rm DBModelR_*.tar.gz || true
+${TAB}@rm ./NAMESPACE 2> /dev/null || true
+${TAB}@rm ./README.html 2> /dev/null || true
+${TAB}@rm -rf ./man/ 2> /dev/null || true
+${TAB}@rm -rf ./vignettes/ 2> /dev/null || true
+
+test${TAB}:
+${TAB}@echo "Running tests..."
+${TAB}@\$(EXEC_R) "devtools::test('.');warnings()"
+${TAB}@\$(EXEC_R) "covr::report(covr::package_coverage(path='$CWD', clean=FALSE), file='$CWD/coverage.html')"
+${TAB}@echo "Finished."
+
+doc${TAB}${TAB}: clean
+${TAB}@echo "Generating doc..."
+${TAB}\$(EXEC_R) "devtools::document('.')"
+${TAB}\$(EXEC_R) "roxygen2::roxygenize('.');warnings()"
+${TAB}\$(EXEC_R) "rmarkdown::render('README.Rmd')"
+${TAB}@echo "Generated."
+
+build${TAB}: doc test
+${TAB}@echo "Building package..."
+${TAB}\$(R_CMD) build .
+${TAB}@echo "Built."
+
+install${TAB}: build
+${TAB}@\$(EXEC_R) 'install.packages(".", repos=NULL, type="source")'
+
+check${TAB}: build
+${TAB}@echo "Checking package..."
+${TAB}cd /tmp/ && \$(R_CMD) check --as-cran $CWD/*.tar.gz
+${TAB}@echo "Checked."
+# ${TAB}${TAB}\$(R_CMD) BiocCheck "\$\${dot}"/*.tar.gz${TAB}\\
+
+submit${TAB}: check install
+${TAB}\$(EXEC_R) 'devtools::submit_cran(pkg=".", args=NULL)'
+
+.PHONY${TAB}: all test build clean doc
+
+EOF

@@ -1,0 +1,7 @@
+/DBModelR.sublime-project
+/DBModelR.sublime-workspace
+/Makefile
+DBModelR*.tar.gz
+/CRAN-RELEASE
+/DBModelR.Rcheck/
+.default_R_path

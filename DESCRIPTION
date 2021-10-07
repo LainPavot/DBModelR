@@ -1,0 +1,58 @@
+Package: DBModelR
+Title: A Model-Database Interface to Make the Database Layer Abstract
+Description: Defines an ORM (Object Relational Mapping) that
+    allow developers to interact with a 'SQLite' database transparently,
+    through R objects.
+    Objects describes the database's schema, can generate the described
+    database, and access it transparently to load, save and update
+    informations.
+    Links between table are created and deleted automatically if
+    necessary to prevent database growth and "dead links".
+License: AGPL | file LICENSE
+Version: 1.0.0
+Authors@R: c(
+    person(
+        "Lain", "Pavot",
+        role=c("aut", "cre"),
+        email="lain.pavot@protonmail.com"
+    ))
+URL: https://github.com/LainPavot/DBModelR
+biocViews: DataRepresentation
+Imports:
+    DBI,
+    methods
+Depends:
+    R (>= 3.6)
+Suggests:
+    blob,
+    Cairo,
+    covr,
+    DT,
+    knitr,
+    qpdf,
+    RMariaDB,
+    RMySQL,
+    RPostgres,
+    RSQLite,
+    rmarkdown,
+    testthat
+VignetteBuilder: knitr
+Collate:
+    'constant.R'
+    'utils.R'
+    'TableName.R'
+    'ConnectionParams.R'
+    'ORM.R'
+    'meta_classes.R'
+    'MetaModel.R'
+    'ModelField.R'
+    'TableMeta.R'
+    'TableFields.R'
+    'ForeignKey.R'
+    'Query.R'
+    'ResultSet.R'
+    'Operator.R'
+NeedsCompilation: no
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.1.2
