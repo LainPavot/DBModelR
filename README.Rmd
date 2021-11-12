@@ -38,22 +38,20 @@ This package has been initialized in the ANR RHU project ChoPIn
 d'exploration du metabolisme" (Metabolism exploration
 plateform - PFEM), at INRAE of Clermont-Theix in France.
 
-The ORM was a part of the "XSeeker" tool that I was coding, and I
-decided to make a more compleet tool. So on my free time, I created
-this package, althought it has nothing in common with the original code
-anymore.
+The ORM was a part of the "XSeeker" tool that I was coding at PFEM, and
+I decided to make a more complete tool. So on my free time, I have
+created this package.
+This package does not have anything in common with the original code
+from XSeeker code anymore.
 
 
-# Contributor Code of Conduct
+Contributor Code of Conduct
+=====
 
-As contributors and maintainers of this project, we pledge to respect all people who contribute through reporting issues, posting feature requests, updating documentation, submitting pull requests or patches, and other activities.
+See the file CODE_OF_CONDUCT.md
 
-We are committed to making participation in this project a harassment-free experience for everyone, regardless of level of experience, gender, gender identity and expression, sexual orientation, disability, personal appearance, body size, ethnicity, age, or religion.
-
-Examples of unacceptable behavior by participants include the use of sexual language or imagery, derogatory comments or personal attacks, trolling, public or private harassment, insults, or other unprofessional conduct.
-
-Project maintainers have the right and responsibility to remove, edit, or reject comments, commits, code, wiki edits, issues, and other contributions that are not aligned to this Code of Conduct. Project maintainers who do not follow the Code of Conduct may be removed from the project team.
-
-Instances of abusive, harassing, or otherwise unacceptable behavior may be reported by opening an issue or contacting one or more of the project maintainers.
-
-This Code of Conduct is adapted from the [Contributor Covenant](http:contributor-covenant.org), version 1.0.0, available at [http://contributor-covenant.org/version/1/0/0/](http://contributor-covenant.org/version/1/0/0/).
+[homepage]: https://www.contributor-covenant.org
+[v2.1]: https://www.contributor-covenant.org/version/2/1/code_of_conduct.html
+[Mozilla CoC]: https://github.com/mozilla/diversity
+[FAQ]: https://www.contributor-covenant.org/faq
+[translations]: https://www.contributor-covenant.org/translations
