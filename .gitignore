@@ -6,3 +6,5 @@ DBModelR*.tar.gz
 /DBModelR.Rcheck/
 .default_R_path
 /man/*
+*.*.*.tar.gz
+/coverage.html
