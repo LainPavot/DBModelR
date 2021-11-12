@@ -10,3 +10,4 @@ DBModelR*.tar.gz
 /coverage.html
 /lib/
 /man/
+/.default_R_path
