@@ -8,3 +8,5 @@ DBModelR*.tar.gz
 /man/*
 *.*.*.tar.gz
 /coverage.html
+/lib/
+/man/
