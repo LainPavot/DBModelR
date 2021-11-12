@@ -5,3 +5,4 @@ DBModelR*.tar.gz
 /CRAN-RELEASE
 /DBModelR.Rcheck/
 .default_R_path
+/man/*
